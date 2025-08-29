@@ -32,13 +32,39 @@
         .title { font-weight: 800; letter-spacing: .2px; color: var(--txt); }
         .badge { font-size: 12px; color: var(--muted); }
         .card { background: var(--card); border: 1px solid rgba(0,0,0,.08); backdrop-filter: saturate(120%) blur(6px); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
-        .grid { display: grid; gap: 12px; }
-        @media(min-width:860px) { .grid { grid-template-columns: 1.2fr .8fr; grid-template-rows: auto auto; } }
-        @media(min-width:860px) { .grid > section:nth-child(3) { grid-column: span 2; } } /* Chart card spans full width below first two */
+        .grid {
+            display: grid;
+            gap: 12px;
+            /* Eliminadas las reglas para columnas, las tarjetas se apilan por defecto */
+        }
 
         .topbar { display: flex; gap: 10px; align-items: center; }
-        .seg { display: flex; background: var(--soft); border-radius: 14px; padding: 4px; }
-        .seg button { border: 0; background: transparent; color: var(--muted); padding: 8px 10px; border-radius: 10px; cursor: pointer; transition: all 0.3s ease-in-out; } /* Smoother transition */
+        /* ---- INICIO DE CAMBIOS PARA LA ESTÉTICA MÓVIL (BARRA DE DÍAS) ---- */
+        .seg {
+            display: flex;
+            background: var(--soft);
+            border-radius: 14px;
+            padding: 4px;
+            overflow-x: auto; /* Permite el scroll horizontal si los elementos exceden el ancho */
+            -webkit-overflow-scrolling: touch; /* Suaviza el scroll en iOS */
+            white-space: nowrap; /* Mantiene los botones en una sola línea */
+            flex-shrink: 0; /* Evita que la barra se encoja */
+            max-width: 100%; /* Asegura que no se desborde del contenedor principal */
+        }
+        .seg::-webkit-scrollbar {
+            display: none; /* Oculta la barra de scroll en navegadores WebKit (Chrome, Safari) */
+        }
+        /* ---- FIN DE CAMBIOS PARA LA ESTÉTICA MÓVIL ---- */
+        .seg button {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            padding: 8px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out; /* Smoother transition */
+            flex-shrink: 0; /* Evita que los botones se encojan */
+        }
         .seg button.active { background: var(--blue); color: white; box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3); }
         .progress { height: 10px; background: #e0e2e6; border-radius: 999px; overflow: hidden; }
         .progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #ffd84d); width: 0%; transition: width 0.5s ease-out; }
@@ -286,7 +312,7 @@
             },
             "Miércoles": {
                 meals: [
-                    { k: "des", name: "Desayuno", options: ["Batido: 250 ml leche semidesnatada + 1 plátano + 30 g proteína", "Yogur griego 0% (150 g) + 30 g avena + 1 cdita chía", "Revuelto 2 claras + 1 huevo + 40 g jamón serrano magro + pan integral (40 g) + plátano"] },
+                    { k: "des", name: "Desayuno", options: ["Batido: 250 ml leche semidesnadada + 1 plátano + 30 g proteína", "Yogur griego 0% (150 g) + 30 g avena + 1 cdita chía", "Revuelto 2 claras + 1 huevo + 40 g jamón serrano magro + pan integral (40 g) + plátano"] },
                     { k: "alm", name: "Almuerzo (media mañana)", options: ["Mandarina + 10 nueces", "Manzana + 10 almendras", "Plátano + 2 lonchas de pavo"] },
                     { k: "com", name: "Comida", options: ["150 g pavo al horno + 70 g quinoa (crudo) + ensalada lechuga y zanahoria", "150 g pollo al curry ligero + 70 g arroz basmati (crudo) + ensalada", "Ensalada de garbanzos (100 g cocidos) + atún + huevo duro + mandarina"] },
                     { k: "mer", name: "Merienda", options: ["Yogur griego 0% + 1 loncha de pavo", "Kiwi + 2 lonchas jamón cocido", "Manzana + 1 loncha jamón serrano"] },
@@ -779,7 +805,7 @@
                     const selectedOptionIndex = appState.selectedAlternatives[mealId] !== undefined ? appState.selectedAlternatives[mealId] : 0;
                     return { label: m.name, body: m.options[selectedOptionIndex] || '', key: m.k };
                 })
-                .concat([{ label: 'Entreno', body: data.workout, key: 'ent' }]);
+                .concat([{ k: 'ent', name: 'Entreno', body: data.workout, key: 'ent' }]); // Corrected workout to use 'body' property
 
             const now = new Date();
             let programmedCount = 0;
