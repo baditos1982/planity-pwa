@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Planity v1.4 · Dashboard</title> <!-- Versión actualizada en el título del navegador -->
+    <title>Planity v1.6 · Dashboard</title> <!-- Versión actualizada en el título del navegador -->
     <meta name="theme-color" content="#f5f7fb">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -76,6 +76,10 @@
         .title {
             font-size: 24px; /* Ajustar el tamaño del título para móviles */
         }
+        .grid-container {
+            display: grid; /* Make this a grid container */
+            gap: 12px; /* Consistent gap */
+        }
         .grid {
             grid-template-columns: 1fr; /* Una columna por defecto en móviles */
         }
@@ -96,8 +100,11 @@
             .app {
                 padding: 15px;
             }
-            .grid {
-                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Permitir 1 o 2 columnas */
+            .grid-container {
+                grid-template-columns: 1fr; /* Always a single column for the main layout */
+            }
+            .grid { /* This grid is now nested within grid-container */
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Permitir 1 o 2 columnas si son sub-grids */
             }
             .chart-controls {
                 flex-direction: row; /* Volver a fila en tablets */
@@ -114,19 +121,28 @@
             .app {
                 padding: 20px;
             }
-            .grid {
-                grid-template-columns: repeat(2, 1fr); /* 2 columnas */
+            .grid-container {
+                grid-template-columns: 1fr; /* Still a single column for the main layout */
             }
-            .grid > section.full-width-card { /* Para tarjetas que ocupan todo el ancho */
+            #metrics-section .grid {
+                grid-template-columns: repeat(2, 1fr); /* 2 columnas para métricas */
+            }
+            #metrics-section .grid > section.full-width-card { /* Para tarjetas que ocupan todo el ancho */
                 grid-column: span 2;
+            }
+            #meals-workout-section .grid {
+                grid-template-columns: 1fr; /* Ensure meals section remains 1 column */
             }
         }
         @media(min-width:1024px) { /* Escritorios */
-            .grid {
-                grid-template-columns: repeat(3, 1fr); /* 3 columnas */
+            #metrics-section .grid {
+                grid-template-columns: repeat(3, 1fr); /* 3 columnas para métricas */
             }
-            .grid > section.full-width-card { /* Para tarjetas que ocupan todo el ancho */
+            #metrics-section .grid > section.full-width-card { /* Para tarjetas que ocupan todo el ancho */
                 grid-column: span 3;
+            }
+            #meals-workout-section .grid {
+                grid-template-columns: 1fr; /* Ensure meals section remains 1 column */
             }
             header {
                 flex-wrap: nowrap;
@@ -458,7 +474,7 @@
 
         <!-- Sección de Comidas y Entreno -->
         <div id="meals-workout-section" class="grid-container">
-            <div class="grid">
+            <div class="grid"> <!-- This inner grid will ensure vertical stacking always -->
                 <section class="card">
                     <h3 style="margin:0 0 8px">Comidas + Entreno</h3>
                     <div class="progress" title="Progreso del día"><span id="prog"></span></div>
@@ -496,7 +512,7 @@
         <!-- Sección de Métricas y Progreso (inicialmente oculta) -->
         <div id="metrics-section" class="grid-container" style="display: none;">
             <div class="grid">
-                <section class="card">
+                <section class="card full-width-card"> <!-- Added full-width-card here -->
                     <h3 style="margin:0 0 8px">Registro Físico</h3>
                     <div class="controls col">
                         <label class="pill full-width">
@@ -527,7 +543,7 @@
                     </ul>
                 </section>
 
-                <section class="card full-width-card"> <!-- New section for Goals -->
+                <section class="card full-width-card">
                     <h3 style="margin:0 0 10px">Mis Metas Personalizadas 🎯</h3>
                     <div class="controls col">
                         <label class="pill full-width">
@@ -693,7 +709,7 @@
                     { k: "alm", name: "Almuerzo (media mañana)", options: ["Yogur griego 0% + 10 almendras", "Manzana + 2 lonchas jamón serrano magro", "Plátano + 2 lonchas de pavo"] },
                     { k: "com", name: "Comida", options: ["150 g pollo plancha + 200 g patata cocida + ensalada (sin brócoli)", "150 g lomo de cerdo magro + 200 g boniato asado + ensalada tomate", "Paella ligera de marisco (≈70 g arroz crudo) + ensalada de tomate"] },
                     { k: "mer", name: "Merienda", options: ["Manzana + 1 loncha jamón serrano", "Kiwi + 1 huevo duro", "Mandarina + 10 nueces"] },
-                    { k: "cen", name: "Cena", options: ["Ensalada de garbanzos (100 g cocidos) + atún + huevo duro + mandarina", "150 g atún a la plancha + ensalada de espinacas + rodaja de melón", "Tortilla 2 huevos + 2 claras + calabacín + rodaja de melón"] }
+                    { k: "cen", name: ["Ensalada de garbanzos (100 g cocidos) + atún + huevo duro + mandarina", "150 g atún a la plancha + ensalada de espinacas + rodaja de melón", "Tortilla 2 huevos + 2 claras + calabacín + rodaja de melón"] }
                 ],
                 workout: "Cardio libre (andar rápido / bici) – 30–40 min"
             },
