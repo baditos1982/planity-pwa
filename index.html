@@ -1,15 +1,42 @@
-
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Planity v1.2 · Dashboard</title> <!-- Versión actualizada en el título del navegador -->
+    <title>Planity v1.4 · Dashboard</title> <!-- Versión actualizada en el título del navegador -->
     <meta name="theme-color" content="#f5f7fb">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- PWA: Link to manifest.json -->
     <link rel="manifest" href="./manifest.json">
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, onSnapshot, orderBy, deleteDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Expose Firebase objects globally for the main script
+        window.firebase = {
+            initializeApp,
+            getAuth,
+            signInAnonymously,
+            signInWithCustomToken,
+            onAuthStateChanged,
+            getFirestore,
+            doc,
+            getDoc,
+            setDoc,
+            collection,
+            query,
+            onSnapshot,
+            orderBy,
+            deleteDoc,
+            getDocs,
+            serverTimestamp // Added for timestamps
+        };
+    </script>
 
     <style>
         :root {
@@ -155,6 +182,34 @@
             flex-shrink: 0; /* Evita que los botones se encojan */
         }
         .seg button.active { background: var(--blue); color: white; box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3); }
+
+        /* Estilos para la navegación principal (tabs) */
+        #main-nav {
+            margin-bottom: 15px;
+        }
+        #main-nav .seg {
+            background: var(--soft);
+            border-radius: var(--radius);
+            padding: 6px;
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+        }
+        #main-nav .seg button {
+            flex-grow: 1;
+            padding: 10px 15px;
+            font-weight: 700;
+            font-size: 16px;
+            border-radius: 14px;
+        }
+        #main-nav .seg button.active {
+            background: var(--blue);
+            color: white;
+            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+
         .progress { height: 10px; background: #e0e2e6; border-radius: 999px; overflow: hidden; }
         .progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #ffd84d); width: 0%; transition: width 0.5s ease-out; }
         .row { display: flex; gap: 10px; align-items: center; }
@@ -334,9 +389,53 @@
         .controls .pill {
             margin: 0; /* Remove any default margin if present */
         }
+        /* Loading indicator styles */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .loader {
+            border: 6px solid var(--soft);
+            border-top: 6px solid var(--blue);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #loading-message {
+            color: var(--txt);
+            font-weight: 700;
+        }
+        #user-id-display {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 5px;
+            text-align: right;
+            padding-right: 10px;
+        }
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" style="display:flex;">
+        <div class="loader"></div>
+        <p id="loading-message">Cargando Planity...</p>
+    </div>
+
     <div class="app">
         <header>
             <div>
@@ -349,136 +448,156 @@
             </div>
         </header>
 
-        <div class="grid">
-            <section class="card">
-                <h3 style="margin:0 0 8px">Comidas + Entreno</h3>
-                <div class="progress" title="Progreso del día"><span id="prog"></span></div>
-                <div class="divider"></div>
-                <div id="lista" class="grid" style="grid-template-columns:1fr"></div>
-            </section>
+        <!-- Navegación principal (tabs) -->
+        <nav id="main-nav">
+            <div class="seg">
+                <button id="nav-meals-workout" class="active">Comidas y Entreno</button>
+                <button id="nav-metrics">Métricas y Progreso</button>
+            </div>
+        </nav>
 
-            <section class="card">
-                <h3 style="margin:0 0 8px">Registro Físico</h3>
-                <div class="controls col">
-                    <label class="pill full-width">
-                        Peso (kg) <input type="number" id="input-weight" placeholder="Ej: 75.5" step="0.1" aria-label="Peso en kilogramos">
-                    </label>
-                    <label class="pill full-width">
-                        Grasa Corporal (%) <input type="number" id="input-bodyfat" placeholder="Ej: 20" step="0.1" min="1" max="50" aria-label="Grasa corporal en porcentaje">
-                    </label>
-                    <label class="pill full-width">
-                        Agua (L) <input type="number" id="input-water" placeholder="Ej: 2.5" step="0.1" aria-label="Litros de agua consumidos">
-                    </label>
-                    <label class="pill full-width">
-                        Pasos <input type="number" id="input-steps" placeholder="Ej: 8000" step="100" aria-label="Número de pasos">
-                    </label>
-                    <label class="pill full-width">
-                        Sueño (h) <input type="number" id="input-sleep" placeholder="Ej: 7.5" step="0.1" aria-label="Horas de sueño">
-                    </label>
-                    <label class="pill full-width">
-                        Músculo (%) <input type="number" id="input-muscle" placeholder="Ej: 35.2" step="0.1" min="1" max="100" aria-label="Porcentaje de músculo">
-                    </label>
-                </div>
-                <div style="height:10px"></div>
-                <button class="btn brand" id="btnSavePhysicalRecord" style="width:100%;">Guardar Registro</button>
-                <div class="divider"></div>
-                <h4 style="margin:6px 0">Historial (últimos 7 días)</h4>
-                <ul id="physicalRecordsList" class="small" style="list-style-type: none; padding: 0;">
-                    <!-- Records will be injected here -->
-                </ul>
-            </section>
+        <!-- Sección de Comidas y Entreno -->
+        <div id="meals-workout-section" class="grid-container">
+            <div class="grid">
+                <section class="card">
+                    <h3 style="margin:0 0 8px">Comidas + Entreno</h3>
+                    <div class="progress" title="Progreso del día"><span id="prog"></span></div>
+                    <div class="divider"></div>
+                    <div id="lista" class="grid" style="grid-template-columns:1fr"></div>
+                </section>
 
-            <section class="card full-width-card"> <!-- New section for Goals -->
-                <h3 style="margin:0 0 10px">Mis Metas Personalizadas 🎯</h3>
-                <div class="controls col">
-                    <label class="pill full-width">
-                        Meta Peso (kg) <input type="number" id="goal-weight" placeholder="Ej: 70" step="0.1" aria-label="Meta de peso en kilogramos">
-                    </label>
-                    <label class="pill full-width">
-                        Meta Grasa Corporal (%) <input type="number" id="goal-bodyfat" placeholder="Ej: 18" step="0.1" min="1" max="50" aria-label="Meta de grasa corporal en porcentaje">
-                    </label>
-                    <label class="pill full-width">
-                        Meta Agua (L) <input type="number" id="goal-water" placeholder="Ej: 3" step="0.1" aria-label="Meta de litros de agua">
-                    </label>
-                    <label class="pill full-width">
-                        Meta Pasos <input type="number" id="goal-steps" placeholder="Ej: 12000" step="100" aria-label="Meta de pasos">
-                    </label>
-                    <label class="pill full-width">
-                        Meta Sueño (h) <input type="number" id="goal-sleep" placeholder="Ej: 8" step="0.1" aria-label="Meta de horas de sueño">
-                    </label>
-                    <label class="pill full-width">
-                        Meta Músculo (%) <input type="number" id="goal-muscle" placeholder="Ej: 40" step="0.1" min="1" max="100" aria-label="Meta de porcentaje de músculo">
-                    </label>
-                </div>
-                <div style="height:10px"></div>
-                <button class="btn brand" id="btnSaveGoals" style="width:100%;">Guardar Metas</button>
-                <div class="divider"></div>
-                <h4 style="margin:6px 0">Estado Actual de Metas:</h4>
-                <ul id="goalsStatusList" class="small" style="list-style-type: none; padding: 0;">
-                    <!-- Goal status will be injected here -->
-                </ul>
-            </section>
-
-            <section class="card full-width-card"> <!-- Now a full-width card for chart -->
-                <h3 style="margin:0 0 8px">Gráfica de Progreso</h3>
-                <div class="chart-controls">
-                    <label>
-                        Rango:
-                        <select id="chart-time-range">
-                            <option value="7">Últimos 7 días</option>
-                            <option value="30">Últimos 30 días</option>
-                            <option value="all">Todo el historial</option>
-                        </select>
-                    </label>
-                    <label>
-                        <input type="checkbox" id="chart-show-weight" checked> Peso
-                    </label>
-                    <label>
-                        <input type="checkbox" id="chart-show-bodyfat" checked> Grasa Corporal
-                    </label>
-                    <label>
-                        <input type="checkbox" id="chart-show-water"> Agua
-                    </label>
-                    <label>
-                        <input type="checkbox" id="chart-show-steps"> Pasos
-                    </label>
-                    <label>
-                        <input type="checkbox" id="chart-show-sleep"> Sueño
-                    </label>
-                    <label>
-                        <input type="checkbox" id="chart-show-muscle"> Músculo
-                    </label>
-                </div>
-                <div style="max-height: 300px;"><canvas id="progressChart"></canvas></div>
-            </section>
-
-            <aside class="card">
-                <h3 style="margin:0 0 8px">Recordatorios</h3>
-                <div class="controls">
-                    <label class="pill">Desayuno <input type="time" id="t-des" aria-label="Hora de desayuno"></label>
-                    <label class="pill">Almuerzo <input type="time" id="t-alm" aria-label="Hora de almuerzo"></label>
-                    <label class="pill">Comida <input type="time" id="t-com" aria-label="Hora de comida"></label>
-                    <label class="pill">Merienda <input type="time" id="t-mer" aria-label="Hora de merienda"></label>
-                    <label class="pill">Cena <input type="time" id="t-cen" aria-label="Hora de cena"></label>
-                    <label class="pill">Entreno <input type="time" id="t-ent" aria-label="Hora de entreno"></label>
-                </div>
-                <div style="height:8px"></div>
-                <div class="row">
-                    <button class="btn brand" id="btnNotif">Activar notificaciones</button>
-                    <button class="btn" id="btnProgramar">Reprogramar hoy</button>
-                </div>
-                <p class="hint">Permite notificaciones del navegador para recibir avisos en los horarios elegidos. Funciona en Android y escritorio. En iOS, añade a pantalla de inicio para mejor experiencia.</p>
-                <div class="divider"></div>
-                <h4 style="margin:6px 0">Consejos rápidos</h4>
-                <ul class="small">
-                    <li>Proteína alta en cada comida (≈140 g/día).</li>
-                    <li>Agua 2–2,5 L; café/infusiones sin azúcar.</li>
-                    <li>30 min de fuerza/HIIT diarios + 8.000–10.000 pasos.</li>
-                </ul>
-            </aside>
+                <aside class="card">
+                    <h3 style="margin:0 0 8px">Recordatorios</h3>
+                    <div class="controls">
+                        <label class="pill">Desayuno <input type="time" id="t-des" aria-label="Hora de desayuno"></label>
+                        <label class="pill">Almuerzo <input type="time" id="t-alm" aria-label="Hora de almuerzo"></label>
+                        <label class="pill">Comida <input type="time" id="t-com" aria-label="Hora de comida"></label>
+                        <label class="pill">Merienda <input type="time" id="t-mer" aria-label="Hora de merienda"></label>
+                        <label class="pill">Cena <input type="time" id="t-cen" aria-label="Hora de cena"></label>
+                        <label class="pill">Entreno <input type="time" id="t-ent" aria-label="Hora de entreno"></label>
+                    </div>
+                    <div style="height:8px"></div>
+                    <div class="row">
+                        <button class="btn brand" id="btnNotif">Activar notificaciones</button>
+                        <button class="btn" id="btnProgramar">Reprogramar hoy</button>
+                    </div>
+                    <p class="hint">Permite notificaciones del navegador para recibir avisos en los horarios elegidos. Funciona en Android y escritorio. En iOS, añade a pantalla de inicio para mejor experiencia.</p>
+                    <div class="divider"></div>
+                    <h4 style="margin:6px 0">Consejos rápidos</h4>
+                    <ul class="small">
+                        <li>Proteína alta en cada comida (≈140 g/día).</li>
+                        <li>Agua 2–2,5 L; café/infusiones sin azúcar.</li>
+                        <li>30 min de fuerza/HIIT diarios + 8.000–10.000 pasos.</li>
+                    </ul>
+                </aside>
+            </div>
         </div>
 
-        <div class="footer">Hecho con ❤️ para Rubén · Estilo iOS · <a href="javascript:void(0)" id="reset">reset</a></div>
+        <!-- Sección de Métricas y Progreso (inicialmente oculta) -->
+        <div id="metrics-section" class="grid-container" style="display: none;">
+            <div class="grid">
+                <section class="card">
+                    <h3 style="margin:0 0 8px">Registro Físico</h3>
+                    <div class="controls col">
+                        <label class="pill full-width">
+                            Peso (kg) <input type="number" id="input-weight" placeholder="Ej: 75.5" step="0.1" aria-label="Peso en kilogramos">
+                        </label>
+                        <label class="pill full-width">
+                            Grasa Corporal (%) <input type="number" id="input-bodyfat" placeholder="Ej: 20" step="0.1" min="1" max="50" aria-label="Grasa corporal en porcentaje">
+                        </label>
+                        <label class="pill full-width">
+                            Agua (L) <input type="number" id="input-water" placeholder="Ej: 2.5" step="0.1" aria-label="Litros de agua consumidos">
+                        </label>
+                        <label class="pill full-width">
+                            Pasos <input type="number" id="input-steps" placeholder="Ej: 8000" step="100" aria-label="Número de pasos">
+                        </label>
+                        <label class="pill full-width">
+                            Sueño (h) <input type="number" id="input-sleep" placeholder="Ej: 7.5" step="0.1" aria-label="Horas de sueño">
+                        </label>
+                        <label class="pill full-width">
+                            Músculo (%) <input type="number" id="input-muscle" placeholder="Ej: 35.2" step="0.1" min="1" max="100" aria-label="Porcentaje de músculo">
+                        </label>
+                    </div>
+                    <div style="height:10px"></div>
+                    <button class="btn brand" id="btnSavePhysicalRecord" style="width:100%;">Guardar Registro</button>
+                    <div class="divider"></div>
+                    <h4 style="margin:6px 0">Historial (últimos 7 días)</h4>
+                    <ul id="physicalRecordsList" class="small" style="list-style-type: none; padding: 0;">
+                        <!-- Records will be injected here -->
+                    </ul>
+                </section>
+
+                <section class="card full-width-card"> <!-- New section for Goals -->
+                    <h3 style="margin:0 0 10px">Mis Metas Personalizadas 🎯</h3>
+                    <div class="controls col">
+                        <label class="pill full-width">
+                            Meta Peso (kg) <input type="number" id="goal-weight" placeholder="Ej: 70" step="0.1" aria-label="Meta de peso en kilogramos">
+                        </label>
+                        <label class="pill full-width">
+                            Meta Grasa Corporal (%) <input type="number" id="goal-bodyfat" placeholder="Ej: 18" step="0.1" min="1" max="50" aria-label="Meta de grasa corporal en porcentaje">
+                        </label>
+                        <label class="pill full-width">
+                            Meta Agua (L) <input type="number" id="goal-water" placeholder="Ej: 3" step="0.1" aria-label="Meta de litros de agua">
+                        </label>
+                        <label class="pill full-width">
+                            Meta Pasos <input type="number" id="goal-steps" placeholder="Ej: 12000" step="100" aria-label="Meta de pasos">
+                        </label>
+                        <label class="pill full-width">
+                            Meta Sueño (h) <input type="number" id="goal-sleep" placeholder="Ej: 8" step="0.1" aria-label="Meta de horas de sueño">
+                        </label>
+                        <label class="pill full-width">
+                            Meta Músculo (%) <input type="number" id="goal-muscle" placeholder="Ej: 40" step="0.1" min="1" max="100" aria-label="Meta de porcentaje de músculo">
+                        </label>
+                    </div>
+                    <div style="height:10px"></div>
+                    <button class="btn brand" id="btnSaveGoals" style="width:100%;">Guardar Metas</button>
+                    <div class="divider"></div>
+                    <h4 style="margin:6px 0">Estado Actual de Metas:</h4>
+                    <ul id="goalsStatusList" class="small" style="list-style-type: none; padding: 0;">
+                        <!-- Goal status will be injected here -->
+                    </ul>
+                </section>
+
+                <section class="card full-width-card"> <!-- Now a full-width card for chart -->
+                    <h3 style="margin:0 0 8px">Gráfica de Progreso</h3>
+                    <div class="chart-controls">
+                        <label>
+                            Rango:
+                            <select id="chart-time-range">
+                                <option value="7">Últimos 7 días</option>
+                                <option value="30">Últimos 30 días</option>
+                                <option value="all">Todo el historial</option>
+                            </select>
+                        </label>
+                        <label>
+                            <input type="checkbox" id="chart-show-weight" checked> Peso
+                        </label>
+                        <label>
+                            <input type="checkbox" id="chart-show-bodyfat" checked> Grasa Corporal
+                        </label>
+                        <label>
+                            <input type="checkbox" id="chart-show-water"> Agua
+                        </label>
+                        <label>
+                            <input type="checkbox" id="chart-show-steps"> Pasos
+                        </label>
+                        <label>
+                            <input type="checkbox" id="chart-show-sleep"> Sueño
+                        </label>
+                        <label>
+                            <input type="checkbox" id="chart-show-muscle"> Músculo
+                        </label>
+                    </div>
+                    <div style="max-height: 300px;"><canvas id="progressChart"></canvas></div>
+                </section>
+            </div>
+        </div>
+
+
+        <div class="footer">
+            Hecho con ❤️ para Rubén · Estilo iOS · <a href="javascript:void(0)" id="reset">reset</a>
+            <div id="user-id-display"></div>
+        </div>
     </div>
 
     <!-- Custom Modal Structure -->
@@ -495,6 +614,9 @@
     </div>
 
     <script>
+        // Global Firebase instances
+        let app, auth, db, userId, appId;
+
         // Register Service Worker for PWA functionality
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -590,13 +712,14 @@
         // Reordered DAY_NAMES to start on Lunes (Monday is 0, Sunday is 6 in this array)
         const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
-        // Local Storage Keys
+        // Local Storage Keys (to be phased out for Firestore, but kept for initial migration)
         const LS_KEY_DAY = 'lf-day';
         const LS_KEY_DONE = 'lf-done';
         const LS_KEY_TIMES = 'lf-times';
-        const LS_KEY_ALTERNATIVES = 'lf-alternatives'; // New key for selected alternatives
-        const LS_KEY_PHYSICAL_RECORDS = 'lf-physical-records'; // New key for physical records
-        const LS_KEY_GOALS = 'lf-goals'; // New key for goals
+        const LS_KEY_ALTERNATIVES = 'lf-alternatives';
+        const LS_KEY_PHYSICAL_RECORDS = 'lf-physical-records';
+        const LS_KEY_GOALS = 'lf-goals';
+        const LS_KEY_ACTIVE_SECTION = 'lf-active-section'; // New key for active section
 
         // DOM Element references
         const DOMElements = {
@@ -650,7 +773,17 @@
             modalMessage: document.getElementById('modalMessage'),
             modalConfirmBtn: document.getElementById('modalConfirmBtn'),
             modalCancelBtn: document.getElementById('modalCancelBtn'),
-            modalAlertBtn: document.getElementById('modalAlertBtn')
+            modalAlertBtn: document.getElementById('modalAlertBtn'),
+
+            loadingOverlay: document.getElementById('loading-overlay'),
+            loadingMessage: document.getElementById('loading-message'),
+            userIdDisplay: document.getElementById('user-id-display'),
+
+            // New navigation elements
+            navMealsWorkoutBtn: document.getElementById('nav-meals-workout'),
+            navMetricsBtn: document.getElementById('nav-metrics'),
+            mealsWorkoutSection: document.getElementById('meals-workout-section'),
+            metricsSection: document.getElementById('metrics-section')
         };
 
         // Helper to get the current day of the week, starting with Monday as 0
@@ -659,14 +792,14 @@
             return (day === 0) ? 6 : day - 1; // Map Sunday (0) to 6 (Domingo), and adjust others
         }
 
-        // Global state
+        // Global state (now primarily from Firestore)
         let appState = {
             day: localStorage.getItem(LS_KEY_DAY) || DAY_NAMES[getDayOfWeekAdjusted()], // Adjusted for Monday start
-            done: JSON.parse(localStorage.getItem(LS_KEY_DONE) || '{}'),
-            times: JSON.parse(localStorage.getItem(LS_KEY_TIMES) || JSON.stringify(DEFAULT_TIMES)),
-            selectedAlternatives: JSON.parse(localStorage.getItem(LS_KEY_ALTERNATIVES) || '{}'),
-            physicalRecords: JSON.parse(localStorage.getItem(LS_KEY_PHYSICAL_RECORDS) || '{}'),
-            goals: JSON.parse(localStorage.getItem(LS_KEY_GOALS) || '{}'), // New state for goals
+            done: JSON.parse(localStorage.getItem(LS_KEY_DONE) || '{}'), // Still in localStorage
+            times: JSON.parse(localStorage.getItem(LS_KEY_TIMES) || JSON.stringify(DEFAULT_TIMES)), // Still in localStorage
+            selectedAlternatives: JSON.parse(localStorage.getItem(LS_KEY_ALTERNATIVES) || '{}'), // Still in localStorage
+            physicalRecords: {}, // Now from Firestore
+            goals: {}, // Now from Firestore
             chartSettings: {
                 timeRange: localStorage.getItem('chart-time-range') || '7',
                 showWeight: JSON.parse(localStorage.getItem('chart-show-weight') || 'true'),
@@ -675,22 +808,24 @@
                 showSteps: JSON.parse(localStorage.getItem('chart-show-steps') || 'false'),
                 showSleep: JSON.parse(localStorage.getItem('chart-show-sleep') || 'false'),
                 showMuscle: JSON.parse(localStorage.getItem('chart-show-muscle') || 'false')
-            }
+            },
+            isAuthReady: false, // Track Firebase auth status
+            activeSection: localStorage.getItem(LS_KEY_ACTIVE_SECTION) || 'meals-workout-section' // New state for active section
         };
 
         let notificationTimeouts = [];
         let progressChartInstance;
 
         /**
-         * Saves the current application state to local storage.
+         * Saves appState items that are still in local storage.
+         * For Firestore-managed items, individual save functions handle it.
          */
-        function saveState() {
+        function saveLocalStorageState() {
             localStorage.setItem(LS_KEY_DAY, appState.day);
             localStorage.setItem(LS_KEY_DONE, JSON.stringify(appState.done));
             localStorage.setItem(LS_KEY_TIMES, JSON.stringify(appState.times));
             localStorage.setItem(LS_KEY_ALTERNATIVES, JSON.stringify(appState.selectedAlternatives));
-            localStorage.setItem(LS_KEY_PHYSICAL_RECORDS, JSON.stringify(appState.physicalRecords));
-            localStorage.setItem(LS_KEY_GOALS, JSON.stringify(appState.goals)); // Save goals
+            // Chart settings are also local for now
             localStorage.setItem('chart-time-range', appState.chartSettings.timeRange);
             localStorage.setItem('chart-show-weight', JSON.stringify(appState.chartSettings.showWeight));
             localStorage.setItem('chart-show-bodyfat', JSON.stringify(appState.chartSettings.showBodyfat));
@@ -698,6 +833,7 @@
             localStorage.setItem('chart-show-steps', JSON.stringify(appState.chartSettings.showSteps));
             localStorage.setItem('chart-show-sleep', JSON.stringify(appState.chartSettings.showSleep));
             localStorage.setItem('chart-show-muscle', JSON.stringify(appState.chartSettings.showMuscle));
+            localStorage.setItem(LS_KEY_ACTIVE_SECTION, appState.activeSection); // Save active section
         }
 
         /**
@@ -776,7 +912,7 @@
                 button.className = name === appState.day ? 'active' : '';
                 button.addEventListener('click', () => {
                     appState.day = name;
-                    saveState();
+                    saveLocalStorageState(); // Only save local storage state
                     renderAll();
                 });
                 DOMElements.daySeg.appendChild(button);
@@ -841,7 +977,7 @@
                 if (selectElement) {
                     selectElement.addEventListener('change', (e) => {
                         appState.selectedAlternatives[id] = parseInt(e.target.value, 10);
-                        saveState();
+                        saveLocalStorageState(); // Only save local storage state
                     });
                 }
 
@@ -859,7 +995,7 @@
         function toggleCompletion(id) {
             appState.done[appState.day] = appState.done[appState.day] || {};
             appState.done[appState.day][id] = !appState.done[appState.day][id];
-            saveState();
+            saveLocalStorageState(); // Only save local storage state
             renderPlanList();
         }
 
@@ -872,25 +1008,26 @@
                 inputElement.value = appState.times[key] || DEFAULT_TIMES[key];
                 inputElement.addEventListener('change', (e) => {
                     appState.times[key] = e.target.value;
-                    saveState();
+                    saveLocalStorageState(); // Only save local storage state
                 });
             }
         }
 
         /**
          * Renders the physical records list and populates current day's inputs.
+         * Reads from appState.physicalRecords (now from Firestore).
          */
         function renderPhysicalRecords() {
             const todayKey = formatKeyDate(new Date());
             const todayRecord = appState.physicalRecords[todayKey];
 
             // Populate inputs for today
-            DOMElements.inputWeight.value = todayRecord ? todayRecord.weight : '';
-            DOMElements.inputBodyfat.value = todayRecord ? todayRecord.bodyfat : '';
-            DOMElements.inputWater.value = todayRecord ? todayRecord.water : '';
-            DOMElements.inputSteps.value = todayRecord ? todayRecord.steps : '';
-            DOMElements.inputSleep.value = todayRecord ? todayRecord.sleep : '';
-            DOMElements.inputMuscle.value = todayRecord ? todayRecord.muscle : '';
+            DOMElements.inputWeight.value = todayRecord?.weight ?? '';
+            DOMElements.inputBodyfat.value = todayRecord?.bodyfat ?? '';
+            DOMElements.inputWater.value = todayRecord?.water ?? '';
+            DOMElements.inputSteps.value = todayRecord?.steps ?? '';
+            DOMElements.inputSleep.value = todayRecord?.sleep ?? '';
+            DOMElements.inputMuscle.value = todayRecord?.muscle ?? '';
 
             // Render history (last 7 days)
             DOMElements.physicalRecordsList.innerHTML = '';
@@ -908,10 +1045,10 @@
                 if (record) {
                     const listItem = document.createElement('li');
                     let recordText = `${formatDate(new Date(dateKey), false)}: ${record.weight} kg, ${record.bodyfat}% grasa`;
-                    if (record.water !== null) recordText += `, ${record.water}L agua`;
-                    if (record.steps !== null) recordText += `, ${record.steps} pasos`;
-                    if (record.sleep !== null) recordText += `, ${record.sleep}h sueño`;
-                    if (record.muscle !== null) recordText += `, ${record.muscle}% músculo`;
+                    if (record.water !== null && record.water !== undefined) recordText += `, ${record.water}L agua`;
+                    if (record.steps !== null && record.steps !== undefined) recordText += `, ${record.steps} pasos`;
+                    if (record.sleep !== null && record.sleep !== undefined) recordText += `, ${record.sleep}h sueño`;
+                    if (record.muscle !== null && record.muscle !== undefined) recordText += `, ${record.muscle}% músculo`;
                     listItem.textContent = recordText;
                     DOMElements.physicalRecordsList.appendChild(listItem);
                 }
@@ -919,118 +1056,133 @@
         }
 
         /**
-         * Saves a new physical record (weight and bodyfat).
+         * Saves a new physical record to Firestore.
          */
-        function savePhysicalRecord() {
-            const weight = parseFloat(DOMElements.inputWeight.value);
-            const bodyfat = parseFloat(DOMElements.inputBodyfat.value);
-            const water = parseFloat(DOMElements.inputWater.value);
-            const steps = parseInt(DOMElements.inputSteps.value, 10);
-            const sleep = parseFloat(DOMElements.inputSleep.value);
-            const muscle = parseFloat(DOMElements.inputMuscle.value);
-            const todayKey = formatKeyDate(new Date());
+        async function savePhysicalRecord() {
+            if (!appState.isAuthReady) {
+                showCustomAlert('Error', 'La aplicación no está lista aún. Inténtalo de nuevo en unos segundos.');
+                return;
+            }
+            DOMElements.loadingOverlay.style.display = 'flex';
+            DOMElements.loadingMessage.textContent = 'Guardando registro...';
 
-            if (isNaN(weight) || isNaN(bodyfat) || weight <= 0 || bodyfat <= 0 || bodyfat > 100) {
-                showCustomAlert('Error de Registro', 'Por favor, introduce valores válidos para peso (kg) y grasa corporal (%).');
-                return;
-            }
-            if (!isNaN(water) && (water < 0 || water > 10)) {
-                showCustomAlert('Error de Registro', 'El valor de agua (L) debe ser entre 0 y 10.');
-                return;
-            }
-            if (!isNaN(steps) && steps < 0) {
-                showCustomAlert('Error de Registro', 'Los pasos no pueden ser un valor negativo.');
-                return;
-            }
-            if (!isNaN(sleep) && (sleep < 0 || sleep > 24)) {
-                showCustomAlert('Error de Registro', 'Las horas de sueño deben ser entre 0 y 24.');
-                return;
-            }
-            if (!isNaN(muscle) && (muscle < 1 || muscle > 100)) {
-                showCustomAlert('Error de Registro', 'El porcentaje de músculo debe ser entre 1 y 100.');
-                return;
-            }
+            try {
+                const weight = parseFloat(DOMElements.inputWeight.value);
+                const bodyfat = parseFloat(DOMElements.inputBodyfat.value);
+                const water = parseFloat(DOMElements.inputWater.value);
+                const steps = parseInt(DOMElements.inputSteps.value, 10);
+                const sleep = parseFloat(DOMElements.inputSleep.value);
+                const muscle = parseFloat(DOMElements.inputMuscle.value);
+                const todayKey = formatKeyDate(new Date());
 
-            appState.physicalRecords[todayKey] = {
-                weight,
-                bodyfat,
-                water: isNaN(water) ? null : water,
-                steps: isNaN(steps) ? null : steps,
-                sleep: isNaN(sleep) ? null : sleep,
-                muscle: isNaN(muscle) ? null : muscle
-            };
-            saveState();
-            renderPhysicalRecords();
-            renderGoalsStatus(); // Update goals status after saving new record
-            renderProgressChart();
-            showCustomAlert('Registro Guardado', 'Tu registro físico ha sido guardado con éxito. Nuevas métricas añadidas.');
+                if (isNaN(weight) || isNaN(bodyfat) || weight <= 0 || bodyfat <= 0 || bodyfat > 100) {
+                    showCustomAlert('Error de Registro', 'Por favor, introduce valores válidos para peso (kg) y grasa corporal (%).');
+                    return;
+                }
+                if (!isNaN(water) && (water < 0 || water > 10)) {
+                    showCustomAlert('Error de Registro', 'El valor de agua (L) debe ser entre 0 y 10.');
+                    return;
+                }
+                if (!isNaN(steps) && steps < 0) {
+                    showCustomAlert('Error de Registro', 'Los pasos no pueden ser un valor negativo.');
+                    return;
+                }
+                if (!isNaN(sleep) && (sleep < 0 || sleep > 24)) {
+                    showCustomAlert('Error de Registro', 'Las horas de sueño deben ser entre 0 y 24.');
+                    return;
+                }
+                if (!isNaN(muscle) && (muscle < 1 || muscle > 100)) {
+                    showCustomAlert('Error de Registro', 'El porcentaje de músculo debe ser entre 1 y 100.');
+                    return;
+                }
+
+                const recordData = {
+                    weight,
+                    bodyfat,
+                    water: isNaN(water) ? null : water,
+                    steps: isNaN(steps) ? null : steps,
+                    sleep: isNaN(sleep) ? null : sleep,
+                    muscle: isNaN(muscle) ? null : muscle,
+                    timestamp: window.firebase.serverTimestamp() // Add server timestamp
+                };
+
+                const docRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/physicalRecords`, todayKey);
+                await window.firebase.setDoc(docRef, recordData, { merge: true }); // Use merge: true to avoid overwriting other fields if they exist
+                showCustomAlert('Registro Guardado', 'Tu registro físico ha sido guardado con éxito y sincronizado.');
+
+            } catch (error) {
+                console.error("Error al guardar registro físico:", error);
+                showCustomAlert('Error', 'Hubo un problema al guardar tu registro físico. Inténtalo de nuevo.');
+            } finally {
+                DOMElements.loadingOverlay.style.display = 'none';
+            }
         }
 
         /**
-         * Renders the goal input values and attaches change listeners.
+         * Renders the goal input values.
+         * Reads from appState.goals (now from Firestore).
          */
         function renderGoalsInputs() {
-            DOMElements.inputGoalWeight.value = appState.goals.weight || '';
-            DOMElements.inputGoalBodyfat.value = appState.goals.bodyfat || '';
-            DOMElements.inputGoalWater.value = appState.goals.water || '';
-            DOMElements.inputGoalSteps.value = appState.goals.steps || '';
-            DOMElements.inputGoalSleep.value = appState.goals.sleep || '';
-            DOMElements.inputGoalMuscle.value = appState.goals.muscle || '';
+            const goals = appState.goals;
+            DOMElements.inputGoalWeight.value = goals?.weight ?? '';
+            DOMElements.inputGoalBodyfat.value = goals?.bodyfat ?? '';
+            DOMElements.inputGoalWater.value = goals?.water ?? '';
+            DOMElements.inputGoalSteps.value = goals?.steps ?? '';
+            DOMElements.inputGoalSleep.value = goals?.sleep ?? '';
+            DOMElements.inputGoalMuscle.value = goals?.muscle ?? '';
         }
 
         /**
-         * Saves the user-defined goals.
+         * Saves the user-defined goals to Firestore.
          */
-        function saveGoals() {
-            const weight = parseFloat(DOMElements.inputGoalWeight.value);
-            const bodyfat = parseFloat(DOMElements.inputGoalBodyfat.value);
-            const water = parseFloat(DOMElements.inputGoalWater.value);
-            const steps = parseInt(DOMElements.inputGoalSteps.value, 10);
-            const sleep = parseFloat(DOMElements.inputGoalSleep.value);
-            const muscle = parseFloat(DOMElements.inputGoalMuscle.value);
+        async function saveGoals() {
+            if (!appState.isAuthReady) {
+                showCustomAlert('Error', 'La aplicación no está lista aún. Inténtalo de nuevo en unos segundos.');
+                return;
+            }
+            DOMElements.loadingOverlay.style.display = 'flex';
+            DOMElements.loadingMessage.textContent = 'Guardando metas...';
 
-            // Basic validation for goals (allow empty, but validate if entered)
-            if (!isNaN(weight) && weight <= 0) {
-                showCustomAlert('Error de Meta', 'La meta de peso debe ser un valor positivo.');
-                return;
-            }
-            if (!isNaN(bodyfat) && (bodyfat <= 0 || bodyfat > 100)) {
-                showCustomAlert('Error de Meta', 'La meta de grasa corporal debe ser entre 1 y 100%.');
-                return;
-            }
-            if (!isNaN(water) && (water < 0 || water > 10)) {
-                showCustomAlert('Error de Meta', 'La meta de agua (L) debe ser entre 0 y 10.');
-                return;
-            }
-            if (!isNaN(steps) && steps < 0) {
-                showCustomAlert('Error de Meta', 'La meta de pasos no puede ser negativa.');
-                return;
-            }
-            if (!isNaN(sleep) && (sleep < 0 || sleep > 24)) {
-                showCustomAlert('Error de Meta', 'La meta de sueño (h) debe ser entre 0 y 24.');
-                return;
-            }
-            if (!isNaN(muscle) && (muscle < 1 || muscle > 100)) {
-                showCustomAlert('Error de Meta', 'La meta de músculo (%) debe ser entre 1 y 100.');
-                return;
-            }
+            try {
+                const weight = parseFloat(DOMElements.inputGoalWeight.value);
+                const bodyfat = parseFloat(DOMElements.inputGoalBodyfat.value);
+                const water = parseFloat(DOMElements.inputGoalWater.value);
+                const steps = parseInt(DOMElements.inputGoalSteps.value, 10);
+                const sleep = parseFloat(DOMElements.inputGoalSleep.value);
+                const muscle = parseFloat(DOMElements.inputGoalMuscle.value);
 
-            appState.goals = {
-                weight: isNaN(weight) ? null : weight,
-                bodyfat: isNaN(bodyfat) ? null : bodyfat,
-                water: isNaN(water) ? null : water,
-                steps: isNaN(steps) ? null : steps,
-                sleep: isNaN(sleep) ? null : sleep,
-                muscle: isNaN(muscle) ? null : muscle
-            };
-            saveState();
-            renderGoalsStatus();
-            renderProgressChart(); // Update chart with goal lines
-            showCustomAlert('Metas Guardadas', 'Tus metas personalizadas han sido guardadas con éxito.');
+                if (!isNaN(weight) && weight <= 0) { showCustomAlert('Error de Meta', 'La meta de peso debe ser un valor positivo.'); return; }
+                if (!isNaN(bodyfat) && (bodyfat <= 0 || bodyfat > 100)) { showCustomAlert('Error de Meta', 'La meta de grasa corporal debe ser entre 1 y 100%.'); return; }
+                if (!isNaN(water) && (water < 0 || water > 10)) { showCustomAlert('Error de Meta', 'La meta de agua (L) debe ser entre 0 y 10.'); return; }
+                if (!isNaN(steps) && steps < 0) { showCustomAlert('Error de Meta', 'La meta de pasos no puede ser negativa.'); return; }
+                if (!isNaN(sleep) && (sleep < 0 || sleep > 24)) { showCustomAlert('Error de Meta', 'La meta de sueño (h) debe ser entre 0 y 24.'); return; }
+                if (!isNaN(muscle) && (muscle < 1 || muscle > 100)) { showCustomAlert('Error de Meta', 'La meta de músculo (%) debe ser entre 1 y 100.'); return; }
+
+                const goalsData = {
+                    weight: isNaN(weight) ? null : weight,
+                    bodyfat: isNaN(bodyfat) ? null : bodyfat,
+                    water: isNaN(water) ? null : water,
+                    steps: isNaN(steps) ? null : steps,
+                    sleep: isNaN(sleep) ? null : sleep,
+                    muscle: isNaN(muscle) ? null : muscle,
+                    lastUpdated: window.firebase.serverTimestamp()
+                };
+
+                const docRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/goals`, "userGoals"); // Single document for user's goals
+                await window.firebase.setDoc(docRef, goalsData, { merge: true });
+                showCustomAlert('Metas Guardadas', 'Tus metas personalizadas han sido guardadas y sincronizadas.');
+
+            } catch (error) {
+                console.error("Error al guardar metas:", error);
+                showCustomAlert('Error', 'Hubo un problema al guardar tus metas. Inténtalo de nuevo.');
+            } finally {
+                DOMElements.loadingOverlay.style.display = 'none';
+            }
         }
 
         /**
          * Renders the current status against the defined goals.
+         * Reads from appState.goals and appState.physicalRecords.
          */
         function renderGoalsStatus() {
             DOMElements.goalsStatusList.innerHTML = '';
@@ -1046,8 +1198,7 @@
             const appendGoalStatus = (metricName, currentVal, goalVal, unit, isLowerBetter = false) => {
                 if (goalVal !== null) {
                     let statusText = `Meta ${metricName}: ${goalVal}${unit}`;
-                    if (lastRecord && currentVal !== null) {
-                        let difference = currentVal - goalVal;
+                    if (lastRecord && currentVal !== null && currentVal !== undefined) {
                         let icon = '';
                         if (isLowerBetter) { // For metrics where lower is better (e.g., bodyfat)
                             if (currentVal <= goalVal) {
@@ -1130,7 +1281,6 @@
                 filteredRecordsKeys = allRecordsKeys.filter(dateKey => new Date(dateKey) >= cutOffDate);
             }
 
-
             const labels = filteredRecordsKeys.map(dateKey => formatDate(new Date(dateKey), false));
             const datasets = [];
             const scales = {
@@ -1141,10 +1291,10 @@
                 yWeight: {
                     type: 'linear',
                     position: 'left',
-                    title: { display: true, text: 'Peso (kg)', color: 'var(--txt)' },
+                    title: { display: true, text: 'Peso/Grasa', color: 'var(--txt)' },
                     ticks: { color: 'var(--muted)' },
                     grid: { color: 'rgba(0,0,0,0.05)' },
-                    display: false // Hidden by default, only show if weight or bodyfat is active
+                    display: false
                 },
                 yOther: { // Generic right axis for other metrics
                     type: 'linear',
@@ -1152,7 +1302,7 @@
                     title: { display: true, text: 'Valores', color: 'var(--txt)' },
                     ticks: { color: 'var(--muted)' },
                     grid: { drawOnChartArea: false, color: 'rgba(0,0,0,0.05)' },
-                    display: false // Hidden by default
+                    display: false
                 }
             };
 
@@ -1183,8 +1333,10 @@
             });
 
             // Add datasets if selected and have data
-            if (appState.chartSettings.showWeight && dataMap.weight.data.some(v => v !== null)) {
-                datasets.push({ ...dataMap.weight, fill: false, spanGaps: true });
+            if (appState.chartSettings.showWeight) {
+                if (dataMap.weight.data.some(v => v !== null)) {
+                    datasets.push({ ...dataMap.weight, fill: false, spanGaps: true });
+                }
                 showYWeight = true;
                 if (dataMap.weight.goal !== null) {
                     datasets.push({
@@ -1199,8 +1351,10 @@
                     });
                 }
             }
-            if (appState.chartSettings.showBodyfat && dataMap.bodyfat.data.some(v => v !== null)) {
-                datasets.push({ ...dataMap.bodyfat, fill: false, spanGaps: true });
+            if (appState.chartSettings.showBodyfat) {
+                if (dataMap.bodyfat.data.some(v => v !== null)) {
+                    datasets.push({ ...dataMap.bodyfat, fill: false, spanGaps: true });
+                }
                 showYWeight = true; // Bodyfat uses same Y axis as weight
                 if (dataMap.bodyfat.goal !== null) {
                     datasets.push({
@@ -1215,8 +1369,10 @@
                     });
                 }
             }
-            if (appState.chartSettings.showWater && dataMap.water.data.some(v => v !== null)) {
-                datasets.push({ ...dataMap.water, fill: false, spanGaps: true });
+            if (appState.chartSettings.showWater) {
+                if (dataMap.water.data.some(v => v !== null)) {
+                    datasets.push({ ...dataMap.water, fill: false, spanGaps: true });
+                }
                 showYOther = true;
                 if (dataMap.water.goal !== null) {
                     datasets.push({
@@ -1231,8 +1387,10 @@
                     });
                 }
             }
-            if (appState.chartSettings.showSteps && dataMap.steps.data.some(v => v !== null)) {
-                datasets.push({ ...dataMap.steps, fill: false, spanGaps: true });
+            if (appState.chartSettings.showSteps) {
+                if (dataMap.steps.data.some(v => v !== null)) {
+                    datasets.push({ ...dataMap.steps, fill: false, spanGaps: true });
+                }
                 showYOther = true;
                 if (dataMap.steps.goal !== null) {
                     datasets.push({
@@ -1247,8 +1405,10 @@
                     });
                 }
             }
-            if (appState.chartSettings.showSleep && dataMap.sleep.data.some(v => v !== null)) {
-                datasets.push({ ...dataMap.sleep, fill: false, spanGaps: true });
+            if (appState.chartSettings.showSleep) {
+                if (dataMap.sleep.data.some(v => v !== null)) {
+                    datasets.push({ ...dataMap.sleep, fill: false, spanGaps: true });
+                }
                 showYOther = true;
                 if (dataMap.sleep.goal !== null) {
                     datasets.push({
@@ -1263,8 +1423,10 @@
                     });
                 }
             }
-            if (appState.chartSettings.showMuscle && dataMap.muscle.data.some(v => v !== null)) {
-                datasets.push({ ...dataMap.muscle, fill: false, spanGaps: true });
+            if (appState.chartSettings.showMuscle) {
+                if (dataMap.muscle.data.some(v => v !== null)) {
+                    datasets.push({ ...dataMap.muscle, fill: false, spanGaps: true });
+                }
                 showYOther = true;
                 if (dataMap.muscle.goal !== null) {
                     datasets.push({
@@ -1384,17 +1546,38 @@
         }
 
         /**
-         * Renders all UI components.
+         * Toggles visibility of sections based on activeSection state.
+         * Also updates active state of navigation buttons.
+         */
+        function updateSectionVisibility() {
+            const isMealsActive = appState.activeSection === 'meals-workout-section';
+
+            DOMElements.mealsWorkoutSection.style.display = isMealsActive ? 'block' : 'none';
+            DOMElements.metricsSection.style.display = isMealsActive ? 'none' : 'block';
+
+            DOMElements.navMealsWorkoutBtn.classList.toggle('active', isMealsActive);
+            DOMElements.navMetricsBtn.classList.toggle('active', !isMealsActive);
+
+            if (!isMealsActive) {
+                // Ensure chart renders correctly when metrics section becomes visible
+                renderProgressChart();
+            }
+        }
+
+
+        /**
+         * Main render function that updates all UI components.
          */
         function renderAll() {
             renderTopBar();
             renderPlanList();
             renderPhysicalRecords();
-            renderGoalsInputs(); // Populate goal inputs
-            renderGoalsStatus(); // Show current goal status
-            renderChartControls(); // Render chart controls (update their state)
-            renderProgressChart(); // Render chart
-            saveState();
+            renderGoalsInputs();
+            renderGoalsStatus();
+            renderChartControls();
+            renderProgressChart();
+            saveLocalStorageState(); // Only save local storage state
+            updateSectionVisibility(); // Update section visibility after rendering everything
         }
 
         /**
@@ -1411,59 +1594,243 @@
         }
 
         /**
+         * Initializes Firebase and sets up data listeners.
+         */
+        async function initializeFirebase() {
+            DOMElements.loadingOverlay.style.display = 'flex';
+            DOMElements.loadingMessage.textContent = 'Conectando a la nube...';
+
+            try {
+                // Get __app_id and __firebase_config from the global scope
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+
+                if (!firebaseConfig) {
+                    console.error("Firebase config not found. Cannot initialize Firebase.");
+                    showCustomAlert('Error de Configuración', 'No se pudo cargar la configuración de Firebase.');
+                    DOMElements.loadingOverlay.style.display = 'none';
+                    return;
+                }
+
+                // Initialize Firebase
+                app = window.firebase.initializeApp(firebaseConfig);
+                auth = window.firebase.getAuth(app);
+                db = window.firebase.getFirestore(app);
+
+                // Authenticate user
+                await new Promise(resolve => {
+                    window.firebase.onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            userId = user.uid;
+                            DOMElements.userIdDisplay.textContent = `ID de usuario: ${userId}`;
+                            console.log("Firebase user authenticated:", userId);
+                            appState.isAuthReady = true;
+                            resolve();
+                        } else {
+                            // Sign in anonymously if no custom token
+                            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                            if (initialAuthToken) {
+                                try {
+                                    await window.firebase.signInWithCustomToken(auth, initialAuthToken);
+                                } catch (error) {
+                                    console.error("Error signing in with custom token:", error);
+                                    await window.firebase.signInAnonymously(auth);
+                                }
+                            } else {
+                                await window.firebase.signInAnonymously(auth);
+                            }
+                        }
+                    });
+                });
+
+                // After successful authentication, set up Firestore listeners
+                setupFirestoreListeners();
+                DOMElements.loadingOverlay.style.display = 'none';
+
+            } catch (error) {
+                console.error("Error during Firebase initialization or authentication:", error);
+                showCustomAlert('Error de Sincronización', 'Hubo un problema al conectar con la nube. Asegúrate de tener conexión a internet.');
+                DOMElements.loadingOverlay.style.display = 'none';
+            }
+        }
+
+        /**
+         * Sets up real-time listeners for physical records and goals.
+         */
+        function setupFirestoreListeners() {
+            if (!userId || !appId || !db) {
+                console.error("Firebase not fully initialized for listeners.");
+                return;
+            }
+
+            // Listener for Physical Records
+            const recordsCollectionRef = window.firebase.collection(db, `artifacts/${appId}/users/${userId}/physicalRecords`);
+            window.firebase.onSnapshot(recordsCollectionRef, (snapshot) => {
+                const newRecords = {};
+                snapshot.forEach(doc => {
+                    newRecords[doc.id] = doc.data();
+                });
+                appState.physicalRecords = newRecords;
+                renderPhysicalRecords();
+                renderGoalsStatus(); // Update goal status as records change
+                renderProgressChart();
+                console.log("Physical records updated from Firestore.");
+            }, (error) => {
+                console.error("Error getting physical records:", error);
+                showCustomAlert('Error de Datos', 'No se pudieron cargar tus registros físicos.');
+            });
+
+            // Listener for Goals
+            const goalsDocRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/goals`, "userGoals");
+            window.firebase.onSnapshot(goalsDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    appState.goals = docSnap.data();
+                } else {
+                    appState.goals = {}; // No goals yet
+                }
+                renderGoalsInputs(); // Populate inputs with fetched goals
+                renderGoalsStatus(); // Update status based on new goals
+                renderProgressChart();
+                console.log("Goals updated from Firestore.");
+            }, (error) => {
+                console.error("Error getting goals:", error);
+                showCustomAlert('Error de Datos', 'No se pudieron cargar tus metas.');
+            });
+
+            // Consider migrating local storage data to Firestore once.
+            // This logic should run only once per user, ideally on first successful Firestore connection.
+            migrateLocalStorageToFirestore();
+        }
+
+        /**
+         * Migrates data from local storage to Firestore if it doesn't exist in Firestore.
+         * This ensures existing users don't lose data on first sync.
+         */
+        async function migrateLocalStorageToFirestore() {
+            if (!userId || !appId || !db) return;
+
+            // Migrate physical records
+            const localRecordsString = localStorage.getItem(LS_KEY_PHYSICAL_RECORDS);
+            if (localRecordsString) {
+                const localRecords = JSON.parse(localRecordsString);
+                for (const dateKey in localRecords) {
+                    const recordData = localRecords[dateKey];
+                    const docRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/physicalRecords`, dateKey);
+                    const docSnap = await window.firebase.getDoc(docRef);
+                    if (!docSnap.exists()) {
+                        await window.firebase.setDoc(docRef, recordData, { merge: true });
+                        console.log(`Migrated physical record for ${dateKey}`);
+                    }
+                }
+                localStorage.removeItem(LS_KEY_PHYSICAL_RECORDS); // Clear local after migration
+            }
+
+            // Migrate goals
+            const localGoalsString = localStorage.getItem(LS_KEY_GOALS);
+            if (localGoalsString) {
+                const localGoals = JSON.parse(localGoalsString);
+                const docRef = window.firebase.doc(db, `artifacts/${appId}/users/${userId}/goals`, "userGoals");
+                const docSnap = await window.firebase.getDoc(docRef);
+                if (!docSnap.exists()) {
+                    await window.firebase.setDoc(docRef, localGoals, { merge: true });
+                    console.log("Migrated goals.");
+                }
+                localStorage.removeItem(LS_KEY_GOALS); // Clear local after migration
+            }
+        }
+
+
+        /**
          * Initializes the application.
          */
         function initApp() {
-            renderAll();
-            renderTimes();
+            initializeFirebase().then(() => {
+                renderAll();
+                renderTimes(); // Times are still local
+                // All other renders are handled by Firebase listeners
+            });
 
-            // Event Listeners
+            // Event Listeners for main navigation
+            DOMElements.navMealsWorkoutBtn.addEventListener('click', () => {
+                appState.activeSection = 'meals-workout-section';
+                saveLocalStorageState();
+                updateSectionVisibility();
+            });
+            DOMElements.navMetricsBtn.addEventListener('click', () => {
+                appState.activeSection = 'metrics-section';
+                saveLocalStorageState();
+                updateSectionVisibility();
+            });
+
+
+            // Event Listeners for local state
             DOMElements.btnNotif.addEventListener('click', requestNotifications);
             DOMElements.btnProgramar.addEventListener('click', scheduleToday);
-            DOMElements.btnSavePhysicalRecord.addEventListener('click', savePhysicalRecord);
-            DOMElements.btnSaveGoals.addEventListener('click', saveGoals); // New event listener for goals
             DOMElements.resetBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                showCustomConfirm('Reiniciar App', '¿Estás seguro de que quieres reiniciar todo el progreso, horarios y registros? Esta acción es irreversible.', () => {
-                    localStorage.clear();
+                showCustomConfirm('Reiniciar App', '¿Estás seguro de que quieres reiniciar todo el progreso, horarios y registros? Esta acción es irreversible. Se eliminarán los datos de la nube.', async () => {
+                    localStorage.clear(); // Clear local state
+                    if (userId && appId && db) {
+                        DOMElements.loadingOverlay.style.display = 'flex';
+                        DOMElements.loadingMessage.textContent = 'Borrando datos en la nube...';
+                        try {
+                            // Delete user's entire collection for physical records
+                            const recordsQuery = await window.firebase.getDocs(window.firebase.collection(db, `artifacts/${appId}/users/${userId}/physicalRecords`));
+                            for (const doc of recordsQuery.docs) {
+                                await window.firebase.deleteDoc(doc.ref);
+                            }
+                            // Delete user's goals document
+                            await window.firebase.deleteDoc(window.firebase.doc(db, `artifacts/${appId}/users/${userId}/goals`, "userGoals"));
+                            console.log("User data deleted from Firestore.");
+                        } catch (error) {
+                            console.error("Error deleting user data from Firestore:", error);
+                            showCustomAlert('Error', 'No se pudieron eliminar todos los datos de la nube.');
+                        } finally {
+                            DOMElements.loadingOverlay.style.display = 'none';
+                        }
+                    }
                     location.reload();
                 });
             });
 
-            // Chart control event listeners
+            // Event Listeners for Firestore-managed data
+            DOMElements.btnSavePhysicalRecord.addEventListener('click', savePhysicalRecord);
+            DOMElements.btnSaveGoals.addEventListener('click', saveGoals);
+
+            // Chart control event listeners (these still update local appState.chartSettings)
             DOMElements.chartTimeRange.addEventListener('change', (e) => {
                 appState.chartSettings.timeRange = e.target.value;
-                saveState();
+                saveLocalStorageState();
                 renderProgressChart();
             });
             DOMElements.chartShowWeight.addEventListener('change', (e) => {
                 appState.chartSettings.showWeight = e.target.checked;
-                saveState();
+                saveLocalStorageState();
                 renderProgressChart();
             });
             DOMElements.chartShowBodyfat.addEventListener('change', (e) => {
                 appState.chartSettings.showBodyfat = e.target.checked;
-                saveState();
+                saveLocalStorageState();
                 renderProgressChart();
             });
             DOMElements.chartShowWater.addEventListener('change', (e) => {
                 appState.chartSettings.showWater = e.target.checked;
-                saveState();
+                saveLocalStorageState();
                 renderProgressChart();
             });
             DOMElements.chartShowSteps.addEventListener('change', (e) => {
                 appState.chartSettings.showSteps = e.target.checked;
-                saveState();
+                saveLocalStorageState();
                 renderProgressChart();
             });
             DOMElements.chartShowSleep.addEventListener('change', (e) => {
                 appState.chartSettings.showSleep = e.target.checked;
-                saveState();
+                saveLocalStorageState();
                 renderProgressChart();
             });
             DOMElements.chartShowMuscle.addEventListener('change', (e) => {
                 appState.chartSettings.showMuscle = e.target.checked;
-                saveState();
+                saveLocalStorageState();
                 renderProgressChart();
             });
         }

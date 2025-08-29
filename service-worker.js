@@ -1,4 +1,4 @@
-const CACHE_NAME = 'planity-cache-v4'; // Aumenta la versión de la caché
+const CACHE_NAME = 'planity-cache-v5'; // Aumenta la versión de la caché
 const urlsToCache = [
     '/',
     '/index.html',
