@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Planity v1.1 · Dashboard</title>
+    <meta name="theme-color" content="#f5f7fb">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- PWA: Link to manifest.json -->
+    <link rel="manifest" href="./manifest.json">
+
+    <style>
+        :root {
+            --bg: #f5f7fb; /* Light background */
+            --card: #ffffff; /* White cards */
+            --soft: #e0e2e6; /* Light gray for controls */
+            --txt: #1a1a1a; /* Dark text principal */
+            --muted: #6b7280; /* Muted gray for secondary text */
+            --brand: #F4D00C; /* LEGIPOL yellow */
+            --blue: #007aff; /* iOS blue for active active states */
+            --ok: #34c759; /* iOS green for check */
+            --danger: #ff3b30; /* iOS red */
+            --shadow: 0 4px 12px rgba(0,0,0,.08); /* Lighter, softer shadow */
+            --radius: 18px;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: linear-gradient(140deg, #f0f2f5, #ffffff 30%, #f5f7fb); color: var(--txt); font: 16px 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, Arial, sans-serif; }
+        .app { max-width: 920px; margin: 0 auto; padding: 20px; }
+        header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .title { font-weight: 800; letter-spacing: .2px; color: var(--txt); }
+        .badge { font-size: 12px; color: var(--muted); }
+        .card { background: var(--card); border: 1px solid rgba(0,0,0,.08); backdrop-filter: saturate(120%) blur(6px); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+        .grid { display: grid; gap: 12px; }
+        @media(min-width:860px) { .grid { grid-template-columns: 1.2fr .8fr; grid-template-rows: auto auto; } }
+        @media(min-width:860px) { .grid > section:nth-child(3) { grid-column: span 2; } } /* Chart card spans full width below first two */
+
+        .topbar { display: flex; gap: 10px; align-items: center; }
+        .seg { display: flex; background: var(--soft); border-radius: 14px; padding: 4px; }
+        .seg button { border: 0; background: transparent; color: var(--muted); padding: 8px 10px; border-radius: 10px; cursor: pointer; transition: all 0.3s ease-in-out; } /* Smoother transition */
+        .seg button.active { background: var(--blue); color: white; box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3); }
+        .progress { height: 10px; background: #e0e2e6; border-radius: 999px; overflow: hidden; }
+        .progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #ffd84d); width: 0%; transition: width 0.5s ease-out; }
+        .row { display: flex; gap: 10px; align-items: center; }
+        .meal { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; background-color: var(--card); border: 1px solid rgba(0,0,0,.08); border-radius: var(--radius); padding: 12px; transition: all 0.2s ease-in-out; }
+        .meal:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+        .meal-header { display: flex; align-items: center; gap: 12px; width: 100%; }
+        .meal .check {
+            width: 22px; height: 22px; border-radius: 8px; border: 1px solid var(--muted);
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            flex-shrink: 0;
+            background-color: transparent;
+            transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+        }
+        .meal .check svg { width: 16px; height: 16px; fill: white; display: none; }
+        .meal.done .check { background-color: var(--ok); border-color: var(--ok); }
+        .meal.done .check svg { display: block; }
+        .meal.done { opacity: .7; }
+        .meal .meta { font-size: 12px; color: var(--muted); }
+        .meal select {
+            appearance: none; /* Hide default arrow */
+            background: var(--soft) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236b7280"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 8px center; /* Custom SVG arrow */
+            background-size: 16px; /* Size of custom arrow */
+            border: 1px solid rgba(0,0,0,.15);
+            color: var(--txt);
+            border-radius: 8px;
+            padding: 6px 30px 6px 8px; /* Adjust padding for custom arrow */
+            width: 100%;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .pill { display: inline-flex; align-items: center; gap: 8px; background: var(--soft); border: 1px solid rgba(0,0,0,.08); padding: 8px 10px; border-radius: 999px; }
+        .pill.full-width { width: 100%; justify-content: space-between; }
+        .pill input {
+            appearance: none;
+            background: #ffffff;
+            border: 1px solid rgba(0,0,0,.15);
+            color: var(--txt);
+            border-radius: 8px;
+            padding: 6px 8px;
+            min-width: 84px;
+            font-family: 'Inter', sans-serif;
+            text-align: right;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .pill input:focus {
+            outline: none;
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2); /* iOS blue focus ring */
+        }
+        .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .controls.col { flex-direction: column; align-items: stretch;}
+
+        .btn { background: #ffffff; color: var(--blue); border: 1px solid var(--blue); padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: all 0.2s ease-in-out; }
+        .btn:hover { background: var(--blue); color: white; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.4); transform: translateY(-1px); }
+        .btn.brand { background: linear-gradient(180deg, #ffed77, #f6d20a); color: #161616; border: 0; box-shadow: 0 2px 8px rgba(244, 208, 12, 0.4); }
+        .btn.brand:hover { background: linear-gradient(180deg, #f6d20a, #ffed77); box-shadow: 0 4px 12px rgba(244, 208, 12, 0.6); }
+
+        .small { font-size: 12px; color: var(--muted); }
+        .divider { height: 1px; background: rgba(0,0,0,.12); margin: 10px 0; }
+        .hint { font-size: 12px; color: var(--muted); }
+        .footer { margin-top: 10px; color: var(--muted); font-size: 12px; text-align: center;}
+        a { color: var(--blue); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Custom Modal Styles (adapted for light theme) */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: var(--card);
+            border: 1px solid rgba(0,0,0,.08);
+            border-radius: var(--radius);
+            padding: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 8px 20px rgba(0,0,0,.15);
+            text-align: center;
+            color: var(--txt);
+        }
+        .modal-content h4 {
+            color: var(--txt);
+            margin-bottom: 10px;
+        }
+        .modal-content p {
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .modal-buttons .btn {
+            min-width: 100px;
+        }
+        .modal-buttons .btn.brand {
+            border: 0;
+            background: var(--blue);
+            color: white;
+            box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
+        }
+        .modal-buttons .btn.brand:hover {
+            background: #006ee6;
+            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div>
+                <div class="badge" id="fecha"></div>
+                <h1 class="title">Planity v1.1 · Tu día</h1>
+            </div>
+            <div class="topbar">
+                <div class="seg" id="daySeg"></div>
+            </div>
+        </header>
+
+        <div class="grid">
+            <section class="card">
+                <h3 style="margin:0 0 8px">Comidas + Entreno</h3>
+                <div class="progress" title="Progreso del día"><span id="prog"></span></div>
+                <div class="divider"></div>
+                <div id="lista" class="grid" style="grid-template-columns:1fr"></div>
+            </section>
+
+            <section class="card">
+                <h3 style="margin:0 0 8px">Registro Físico</h3>
+                <div class="controls col">
+                    <label class="pill full-width">
+                        Peso (kg) <input type="number" id="input-weight" placeholder="Ej: 75.5" step="0.1" aria-label="Peso en kilogramos">
+                    </label>
+                    <label class="pill full-width">
+                        Grasa Corporal (%) <input type="number" id="input-bodyfat" placeholder="Ej: 20" step="0.1" min="1" max="50" aria-label="Grasa corporal en porcentaje">
+                    </label>
+                </div>
+                <div style="height:10px"></div>
+                <button class="btn brand" id="btnSavePhysicalRecord" style="width:100%;">Guardar Registro</button>
+                <div class="divider"></div>
+                <h4 style="margin:6px 0">Historial (últimos 7 días)</h4>
+                <ul id="physicalRecordsList" class="small" style="list-style-type: none; padding: 0;">
+                    <!-- Records will be injected here -->
+                </ul>
+            </section>
+
+            <section class="card">
+                <h3 style="margin:0 0 8px">Gráfica de Progreso</h3>
+                <div style="max-height: 300px;"><canvas id="progressChart"></canvas></div>
+            </section>
+
+            <aside class="card">
+                <h3 style="margin:0 0 8px">Recordatorios</h3>
+                <div class="controls">
+                    <label class="pill">Desayuno <input type="time" id="t-des" aria-label="Hora de desayuno"></label>
+                    <label class="pill">Almuerzo <input type="time" id="t-alm" aria-label="Hora de almuerzo"></label>
+                    <label class="pill">Comida <input type="time" id="t-com" aria-label="Hora de comida"></label>
+                    <label class="pill">Merienda <input type="time" id="t-mer" aria-label="Hora de merienda"></label>
+                    <label class="pill">Cena <input type="time" id="t-cen" aria-label="Hora de cena"></label>
+                    <label class="pill">Entreno <input type="time" id="t-ent" aria-label="Hora de entreno"></label>
+                </div>
+                <div style="height:8px"></div>
+                <div class="row">
+                    <button class="btn brand" id="btnNotif">Activar notificaciones</button>
+                    <button class="btn" id="btnProgramar">Reprogramar hoy</button>
+                </div>
+                <p class="hint">Permite notificaciones del navegador para recibir avisos en los horarios elegidos. Funciona en Android y escritorio. En iOS, añade a pantalla de inicio para mejor experiencia.</p>
+                <div class="divider"></div>
+                <h4 style="margin:6px 0">Consejos rápidos</h4>
+                <ul class="small">
+                    <li>Proteína alta en cada comida (≈140 g/día).</li>
+                    <li>Agua 2–2,5 L; café/infusiones sin azúcar.</li>
+                    <li>30 min de fuerza/HIIT diarios + 8.000–10.000 pasos.</li>
+                </ul>
+            </aside>
+        </div>
+
+        <div class="footer">Hecho con ❤️ para Rubén · Estilo iOS · <a href="javascript:void(0)" id="reset">reset</a></div>
+    </div>
+
+    <!-- Custom Modal Structure -->
+    <div id="customModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <h4 id="modalTitle" style="margin-top:0;"></h4>
+            <p id="modalMessage"></p>
+            <div class="modal-buttons">
+                <button id="modalConfirmBtn" class="btn brand" style="display:none;">Confirmar</button>
+                <button id="modalCancelBtn" class="btn" style="display:none;">Cancelar</button>
+                <button id="modalAlertBtn" class="btn brand">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Register Service Worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registered: ', registration.scope);
+                    })
+                    .catch(registrationError => {
+                        console.log('ServiceWorker registration failed: ', registrationError);
+                    });
+            });
+        }
+
+        // Default times for meals and workout
+        const DEFAULT_TIMES = {
+            des: "08:30", alm: "11:30", com: "14:00", mer: "17:30", cen: "21:00", ent: "19:00"
+        };
+
+        // Weekly plan data (meals and workouts) with alternatives
+        const WEEK_PLAN = {
+            "Lunes": {
+                meals: [
+                    { k: "des", name: "Desayuno", options: ["Tortilla 3 claras + 1 huevo + 40 g avena con manzana y canela", "Yogur griego 0% (150 g) + 30 g avena + 1 cdita chía", "Tostada integral (50 g) + 1/2 aguacate + atún al natural"] },
+                    { k: "alm", name: "Almuerzo (media mañana)", options: ["Yogur griego 0% + 10 almendras", "Manzana + 2 lonchas jamón serrano magro", "Mandarina + 10 nueces"] },
+                    { k: "com", name: "Comida", options: ["150 g pollo plancha + 70 g arroz integral (crudo) + ensalada lechuga y zanahoria", "150 g ternera magra + 200 g patata asada + ensalada tomate y pepino", "150 g pavo al horno + 70 g quinoa (crudo) + ensalada lechuga y zanahoria"] },
+                    { k: "mer", name: "Merienda", options: ["Plátano + 1 loncha pavo", "Kiwi + 1 huevo duro", "Yogur griego 0% + 1 loncha de pavo"] },
+                    { k: "cen", name: "Cena", options: ["150 g salmón al horno + ensalada verde con 1/2 aguacate", "150 g atún a la plancha + ensalada de espinacas + rodaja de melón", "Revuelto 3 claras + 1 huevo + champiñones + naranja"] }
+                ],
+                workout: "Empuje (press hombros, flexiones con goma, press suelo, fondos tríceps) – 30 min"
+            },
+            "Martes": {
+                meals: [
+                    { k: "des", name: "Desayuno", options: ["Yogur griego 0% (150 g) + 20 g nueces + 80 g frutos rojos", "Tortilla 3 claras + 1 huevo + 40 g avena con manzana y canela", "Tostada integral (50 g) + 1/2 aguacate + atún al natural"] },
+                    { k: "alm", name: "Almuerzo (media mañana)", options: ["Manzana + 2 lonchas jamón serrano magro", "Yogur griego 0% + 10 almendras", "Kiwi + 1 huevo duro"] },
+                    { k: "com", name: "Comida", options: ["150 g ternera magra + 200 g patata asada + ensalada tomate y pepino", "150 g pollo plancha + 70 g arroz integral (crudo) + ensalada lechuga y zanahoria", "150 g lomo de cerdo magro + 200 g boniato asado + ensalada tomate"] },
+                    { k: "mer", name: "Merienda", options: ["Kiwi + 1 huevo duro", "Plátano + 1 loncha pavo", "Mandarina + 10 nueces"] },
+                    { k: "cen", name: "Cena", options: ["150 g atún a la plancha + ensalada de espinacas + rodaja de melón", "150 g salmón al horno + ensalada verde con 1/2 aguacate", "Tortilla 2 huevos + 2 claras + calabacín + rodaja de melón"] }
+                ],
+                workout: "Pierna (sentadillas, peso muerto rumano, zancadas, gemelos) – 30 min"
+            },
+            "Miércoles": {
+                meals: [
+                    { k: "des", name: "Desayuno", options: ["Batido: 250 ml leche semidesnatada + 1 plátano + 30 g proteína", "Yogur griego 0% (150 g) + 30 g avena + 1 cdita chía", "Revuelto 2 claras + 1 huevo + 40 g jamón serrano magro + pan integral (40 g) + plátano"] },
+                    { k: "alm", name: "Almuerzo (media mañana)", options: ["Mandarina + 10 nueces", "Manzana + 10 almendras", "Plátano + 2 lonchas de pavo"] },
+                    { k: "com", name: "Comida", options: ["150 g pavo al horno + 70 g quinoa (crudo) + ensalada lechuga y zanahoria", "150 g pollo al curry ligero + 70 g arroz basmati (crudo) + ensalada", "Ensalada de garbanzos (100 g cocidos) + atún + huevo duro + mandarina"] },
+                    { k: "mer", name: "Merienda", options: ["Yogur griego 0% + 1 loncha de pavo", "Kiwi + 2 lonchas jamón cocido", "Manzana + 1 loncha jamón serrano"] },
+                    { k: "cen", name: "Cena", options: ["Revuelto 3 claras + 1 huevo + champiñones + naranja", "150 g salmón plancha + ensalada de rúcula + rodaja de piña", "Ensalada de garbanzos (100 g cocidos) + atún + huevo duro + mandarina"] }
+                ],
+                workout: "Core + HIIT (plancha, russian twist, bici abdominal, burpees) – 30 min"
+            },
+            "Jueves": {
+                meals: [
+                    { k: "des", name: "Desayuno", options: ["Tostada integral (50 g) + 1/2 aguacate + atún al natural", "Tortilla 3 claras + 1 huevo + 40 g avena con manzana y canela", "Yogur griego 0% (150 g) + 20 g nueces + 80 g frutos rojos"] },
+                    { k: "alm", name: "Almuerzo (media mañana)", options: ["Manzana + 10 almendras", "Mandarina + 10 nueces", "Kiwi + 10 almendras"] },
+                    { k: "com", name: "Comida", options: ["150 g pollo al curry ligero + 70 g arroz basmati (crudo) + ensalada", "150 g ternera magra + 200 g patata asada + ensalada tomate y pepino", "Paella ligera de marisco (≈70 g arroz crudo) + ensalada de tomate"] },
+                    { k: "mer", name: "Merienda", options: ["Kiwi + 2 lonchas jamón cocido", "Plátano + 1 loncha pavo", "Yogur griego 0% + 1 loncha de pavo"] },
+                    { k: "cen", name: "Cena", options: ["150 g salmón plancha + ensalada de rúcula + rodaja de piña", "Revuelto 3 claras + 1 huevo + champiñones + naranja", "150 g pescado (salmón o atún) + ensalada verde con aguacate"] }
+                ],
+                workout: "Tirón (remo mancuernas, curl bíceps, face pull con goma) – 30 min"
+            },
+            "Viernes": {
+                meals: [
+                    { k: "des", name: "Desayuno", options: ["Yogur griego 0% (150 g) + 30 g avena + 1 cdita chía", "Batido: 250 ml leche semidesnatada + 1 plátano + 30 g proteína", "Tortitas fit (50 g avena + 2 claras + 1 huevo) + kiwi"] },
+                    { k: "alm", name: "Almuerzo (media mañana)", options: ["Plátano + 2 lonchas de pavo", "Manzana + 10 almendras", "Kiwi + 2 lonchas jamón cocido"] },
+                    { k: "com", name: "Comida", options: ["150 g lomo de cerdo magro + 200 g boniato asado + ensalada tomate", "150 g pollo al curry ligero + 70 g arroz basmati (crudo) + ensalada", "150 g pavo al horno + 70 g quinoa (crudo) + ensalada lechuga y zanahoria"] },
+                    { k: "mer", name: "Merienda", options: ["Mandarina + 10 nueces", "Kiwi + 2 lonchas jamón cocido", "Yogur griego 0% + 1 loncha de pavo"] },
+                    { k: "cen", name: "Cena", options: ["Tortilla 2 huevos + 2 claras + calabacín + rodaja de melón", "150 g salmón plancha + ensalada de rúcula + rodaja de piña", "Revuelto 3 claras + 1 huevo + champiñones + naranja"] }
+                ],
+                workout: "Full Body (sentadilla+press, peso muerto+remo, flexiones, plancha) – 30 min"
+            },
+            "Sábado": {
+                meals: [
+                    { k: "des", name: "Desayuno", options: ["Tortitas fit (50 g avena + 2 claras + 1 huevo) + kiwi", "Yogur griego 0% (150 g) + 20 g nueces + 80 g frutos rojos", "Tostada integral (50 g) + 1/2 aguacate + atún al natural"] },
+                    { k: "alm", name: "Almuerzo (media mañana)", options: ["Yogur griego 0% + 10 almendras", "Manzana + 2 lonchas jamón serrano magro", "Plátano + 2 lonchas de pavo"] },
+                    { k: "com", name: "Comida", options: ["150 g pollo plancha + 200 g patata cocida + ensalada (sin brócoli)", "150 g lomo de cerdo magro + 200 g boniato asado + ensalada tomate", "Paella ligera de marisco (≈70 g arroz crudo) + ensalada de tomate"] },
+                    { k: "mer", name: "Merienda", options: ["Manzana + 1 loncha jamón serrano", "Kiwi + 1 huevo duro", "Mandarina + 10 nueces"] },
+                    { k: "cen", name: "Cena", options: ["Ensalada de garbanzos (100 g cocidos) + atún + huevo duro + mandarina", "150 g atún a la plancha + ensalada de espinacas + rodaja de melón", "Tortilla 2 huevos + 2 claras + calabacín + rodaja de melón"] }
+                ],
+                workout: "Cardio libre (andar rápido / bici) – 30–40 min"
+            },
+            "Domingo": {
+                meals: [
+                    { k: "des", name: "Desayuno", options: ["Revuelto 2 claras + 1 huevo + 40 g jamón serrano magro + pan integral (40 g) + plátano", "Batido: 250 ml leche semidesnatada + 1 plátano + 30 g proteína", "Tortitas fit (50 g avena + 2 claras + 1 huevo) + kiwi"] },
+                    { k: "alm", name: "Almuerzo (media mañana)", options: ["Kiwi + 10 almendras", "Yogur griego 0% + 10 almendras", "Mandarina + 10 nueces"] },
+                    { k: "com", name: "Comida", options: ["Paella ligera de marisco (≈70 g arroz crudo) + ensalada de tomate", "150 g pollo plancha + 200 g patata cocida + ensalada (sin brócoli)", "150 g ternera magra + 200 g patata asada + ensalada tomate y pepino"] },
+                    { k: "mer", name: "Merienda", options: ["Yogur griego 0% + 1 loncha de pavo", "Manzana + 1 loncha jamón serrano", "Kiwi + 2 lonchas jamón cocido"] },
+                    { k: "cen", name: "Cena", options: ["150 g pescado (salmón o atún) + ensalada verde con aguacate", "Ensalada de garbanzos (100 g cocidos) + atún + huevo duro + mandarina", "150 g salmón al horno + ensalada verde con 1/2 aguacate"] }
+                ],
+                workout: "Descanso activo (paseo + estiramientos) – 20–30 min"
+            }
+        };
+
+        const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+        // Local Storage Keys
+        const LS_KEY_DAY = 'lf-day';
+        const LS_KEY_DONE = 'lf-done';
+        const LS_KEY_TIMES = 'lf-times';
+        const LS_KEY_ALTERNATIVES = 'lf-alternatives'; // New key for selected alternatives
+        const LS_KEY_PHYSICAL_RECORDS = 'lf-physical-records'; // New key for physical records
+
+        // DOM Element references
+        const DOMElements = {
+            fecha: document.getElementById('fecha'),
+            daySeg: document.getElementById('daySeg'),
+            lista: document.getElementById('lista'),
+            prog: document.getElementById('prog'),
+            btnNotif: document.getElementById('btnNotif'),
+            btnProgramar: document.getElementById('btnProgramar'),
+            resetBtn: document.getElementById('reset'),
+            timeInputs: {
+                des: document.getElementById('t-des'),
+                alm: document.getElementById('t-alm'),
+                com: document.getElementById('t-com'),
+                mer: document.getElementById('t-mer'),
+                cen: document.getElementById('t-cen'),
+                ent: document.getElementById('t-ent')
+            },
+            // New physical record elements
+            inputWeight: document.getElementById('input-weight'),
+            inputBodyfat: document.getElementById('input-bodyfat'), // Changed from inputWaist
+            btnSavePhysicalRecord: document.getElementById('btnSavePhysicalRecord'),
+            physicalRecordsList: document.getElementById('physicalRecordsList'),
+            // Chart element
+            progressChart: document.getElementById('progressChart'),
+
+            customModal: document.getElementById('customModal'),
+            modalTitle: document.getElementById('modalTitle'),
+            modalMessage: document.getElementById('modalMessage'),
+            modalConfirmBtn: document.getElementById('modalConfirmBtn'),
+            modalCancelBtn: document.getElementById('modalCancelBtn'),
+            modalAlertBtn: document.getElementById('modalAlertBtn')
+        };
+
+        // Global state
+        let appState = {
+            day: localStorage.getItem(LS_KEY_DAY) || DAY_NAMES[new Date().getDay()] || 'Lunes',
+            done: JSON.parse(localStorage.getItem(LS_KEY_DONE) || '{}'),
+            times: JSON.parse(localStorage.getItem(LS_KEY_TIMES) || JSON.stringify(DEFAULT_TIMES)),
+            selectedAlternatives: JSON.parse(localStorage.getItem(LS_KEY_ALTERNATIVES) || '{}'), // New state for alternatives
+            physicalRecords: JSON.parse(localStorage.getItem(LS_KEY_PHYSICAL_RECORDS) || '{}') // New state for physical records
+        };
+
+        let notificationTimeouts = []; // To store timeout IDs for clearing
+        let progressChartInstance; // To hold the Chart.js instance
+
+        /**
+         * Saves the current application state to local storage.
+         */
+        function saveState() {
+            localStorage.setItem(LS_KEY_DAY, appState.day);
+            localStorage.setItem(LS_KEY_DONE, JSON.stringify(appState.done));
+            localStorage.setItem(LS_KEY_TIMES, JSON.stringify(appState.times));
+            localStorage.setItem(LS_KEY_ALTERNATIVES, JSON.stringify(appState.selectedAlternatives));
+            localStorage.setItem(LS_KEY_PHYSICAL_RECORDS, JSON.stringify(appState.physicalRecords));
+        }
+
+        /**
+         * Formats a Date object into a readable Spanish string.
+         * @param {Date} d - The date to format.
+         * @returns {string} The formatted date string.
+         */
+        function formatDate(d, includeYear = true) {
+            const opts = { weekday: 'long', month: 'long', day: 'numeric' };
+            if (includeYear) opts.year = 'numeric';
+            return new Intl.DateTimeFormat('es-ES', opts).format(d).replace(/^./, c => c.toUpperCase());
+        }
+
+        /**
+         * Formats a Date object into a YYYY-MM-DD string for keys.
+         * @param {Date} date - The date object.
+         * @returns {string} Date in YYYY-MM-DD format.
+         */
+        function formatKeyDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        /**
+         * Displays a custom alert modal.
+         * @param {string} title - The title of the alert.
+         * @param {string} message - The message content.
+         */
+        function showCustomAlert(title, message) {
+            DOMElements.modalTitle.textContent = title;
+            DOMElements.modalMessage.textContent = message;
+            DOMElements.modalConfirmBtn.style.display = 'none';
+            DOMElements.modalCancelBtn.style.display = 'none';
+            DOMElements.modalAlertBtn.style.display = 'inline-block';
+            DOMElements.customModal.style.display = 'flex';
+
+            DOMElements.modalAlertBtn.onclick = () => {
+                DOMElements.customModal.style.display = 'none';
+            };
+        }
+
+        /**
+         * Displays a custom confirmation modal.
+         * @param {string} title - The title of the confirmation.
+         * @param {string} message - The message content.
+         * @param {function} onConfirm - Callback function to execute if confirmed.
+         */
+        function showCustomConfirm(title, message, onConfirm) {
+            DOMElements.modalTitle.textContent = title;
+            DOMElements.modalMessage.textContent = message;
+            DOMElements.modalConfirmBtn.style.display = 'inline-block';
+            DOMElements.modalCancelBtn.style.display = 'inline-block';
+            DOMElements.modalAlertBtn.style.display = 'none';
+            DOMElements.customModal.style.display = 'flex';
+
+            DOMElements.modalConfirmBtn.onclick = () => {
+                DOMElements.customModal.style.display = 'none';
+                onConfirm();
+            };
+            DOMElements.modalCancelBtn.onclick = () => {
+                DOMElements.customModal.style.display = 'none';
+            };
+        }
+
+        /**
+         * Renders the current date and day selection buttons.
+         */
+        function renderTopBar() {
+            DOMElements.fecha.textContent = formatDate(new Date());
+            DOMElements.daySeg.innerHTML = '';
+            DAY_NAMES.forEach(name => {
+                const button = document.createElement('button');
+                button.textContent = name;
+                button.className = name === appState.day ? 'active' : '';
+                button.addEventListener('click', () => {
+                    appState.day = name;
+                    saveState();
+                    renderAll();
+                });
+                DOMElements.daySeg.appendChild(button);
+            });
+        }
+
+        /**
+         * Renders the list of meals and workout for the selected day.
+         * Updates the progress bar. Includes meal alternatives.
+         */
+        function renderPlanList() {
+            DOMElements.lista.innerHTML = '';
+            const data = WEEK_PLAN[appState.day];
+            let countDone = 0;
+            const totalItems = data.meals.length + 1; // +1 for the workout
+
+            const itemsToRender = data.meals.map(m => ({
+                k: m.k,
+                name: m.name,
+                options: m.options
+            })).concat([{ k: 'ent', name: 'Entreno', options: [data.workout] }]);
+
+            itemsToRender.forEach(item => {
+                const id = `${appState.day}-${item.k}`;
+                appState.done[appState.day] = appState.done[appState.day] || {};
+                const done = !!appState.done[appState.day][id];
+
+                if (done) countDone++;
+
+                const mealElement = document.createElement('div');
+                mealElement.className = 'meal' + (done ? ' done' : '');
+
+                let optionsHtml = '';
+                if (item.options && item.options.length > 0) {
+                    const selectedIndex = appState.selectedAlternatives[id] !== undefined ? appState.selectedAlternatives[id] : 0;
+                    optionsHtml = `<select data-item-id="${id}" class="meal-select">`;
+                    item.options.forEach((option, index) => {
+                        optionsHtml += `<option value="${index}" ${index === selectedIndex ? 'selected' : ''}>${option}</option>`;
+                    });
+                    optionsHtml += `</select>`;
+                } else {
+                    optionsHtml = `<div class="meta">${item.options[0] || ''}</div>`;
+                }
+
+                mealElement.innerHTML = `
+                    <div class="meal-header">
+                        <div class="check" role="checkbox" aria-checked="${done}" data-id="${id}">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                            </svg>
+                        </div>
+                        <div style="font-weight:700; color: var(--txt);">${item.name}</div>
+                    </div>
+                    ${optionsHtml}
+                `;
+
+                mealElement.querySelector('.check').addEventListener('click', () => {
+                    toggleCompletion(id);
+                });
+
+                const selectElement = mealElement.querySelector('.meal-select');
+                if (selectElement) {
+                    selectElement.addEventListener('change', (e) => {
+                        appState.selectedAlternatives[id] = parseInt(e.target.value, 10);
+                        saveState();
+                        // Re-render plan list to update notification text on selection change if needed
+                        // (already handled by renderAll in scheduleToday for notifications)
+                    });
+                }
+
+                DOMElements.lista.appendChild(mealElement);
+            });
+
+            const percentage = Math.round((countDone / totalItems) * 100);
+            DOMElements.prog.style.width = percentage + '%';
+        }
+
+        /**
+         * Toggles the completion status of an item and re-renders the list.
+         * @param {string} id - The unique ID of the item (e.g., "Lunes-des").
+         */
+        function toggleCompletion(id) {
+            appState.done[appState.day] = appState.done[appState.day] || {};
+            appState.done[appState.day][id] = !appState.done[appState.day][id];
+            saveState();
+            renderPlanList();
+        }
+
+        /**
+         * Renders the time input values and attaches change listeners.
+         */
+        function renderTimes() {
+            for (const key in DOMElements.timeInputs) {
+                const inputElement = DOMElements.timeInputs[key];
+                inputElement.value = appState.times[key] || DEFAULT_TIMES[key];
+                inputElement.addEventListener('change', (e) => {
+                    appState.times[key] = e.target.value;
+                    saveState();
+                });
+            }
+        }
+
+        /**
+         * Renders the physical records list and populates current day's inputs.
+         */
+        function renderPhysicalRecords() {
+            const todayKey = formatKeyDate(new Date());
+            const todayRecord = appState.physicalRecords[todayKey];
+
+            // Populate inputs for today
+            DOMElements.inputWeight.value = todayRecord ? todayRecord.weight : '';
+            DOMElements.inputBodyfat.value = todayRecord ? todayRecord.bodyfat : '';
+
+            // Render history (last 7 days)
+            DOMElements.physicalRecordsList.innerHTML = '';
+            const sortedDates = Object.keys(appState.physicalRecords)
+                                    .sort((a, b) => new Date(b) - new Date(a))
+                                    .slice(0, 7); // Show last 7 days
+
+            if (sortedDates.length === 0) {
+                DOMElements.physicalRecordsList.innerHTML = `<li>No hay registros aún.</li>`;
+                return;
+            }
+
+            sortedDates.forEach(dateKey => {
+                const record = appState.physicalRecords[dateKey];
+                if (record) {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${formatDate(new Date(dateKey), false)}: ${record.weight} kg, ${record.bodyfat}% grasa`;
+                    DOMElements.physicalRecordsList.appendChild(listItem);
+                }
+            });
+        }
+
+        /**
+         * Saves a new physical record (weight and bodyfat).
+         */
+        function savePhysicalRecord() {
+            const weight = parseFloat(DOMElements.inputWeight.value);
+            const bodyfat = parseFloat(DOMElements.inputBodyfat.value);
+            const todayKey = formatKeyDate(new Date());
+
+            if (isNaN(weight) || isNaN(bodyfat) || weight <= 0 || bodyfat <= 0 || bodyfat > 100) {
+                showCustomAlert('Error de Registro', 'Por favor, introduce valores válidos para peso (kg) y grasa corporal (%).');
+                return;
+            }
+
+            appState.physicalRecords[todayKey] = { weight, bodyfat };
+            saveState();
+            renderPhysicalRecords();
+            renderProgressChart();
+            showCustomAlert('Registro Guardado', 'Tu registro físico ha sido guardado con éxito.');
+        }
+
+        /**
+         * Renders the progress chart using Chart.js.
+         */
+        function renderProgressChart() {
+            if (!DOMElements.progressChart) return;
+
+            // Destroy existing chart instance if it exists
+            if (progressChartInstance) {
+                progressChartInstance.destroy();
+            }
+
+            const sortedRecordsKeys = Object.keys(appState.physicalRecords)
+                .sort((a, b) => new Date(a) - new Date(b)); // Sort oldest to newest
+
+            const labels = sortedRecordsKeys.map(dateKey => formatDate(new Date(dateKey), false));
+            const weights = sortedRecordsKeys.map(dateKey => appState.physicalRecords[dateKey].weight);
+            const bodyfats = sortedRecordsKeys.map(dateKey => appState.physicalRecords[dateKey].bodyfat);
+
+            const ctx = DOMElements.progressChart.getContext('2d');
+            progressChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Peso (kg)',
+                            data: weights,
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'yWeight',
+                        },
+                        {
+                            label: 'Grasa Corporal (%)',
+                            data: bodyfats,
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'yBodyfat',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: 'var(--txt)'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: 'var(--muted)'
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        yWeight: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Peso (kg)',
+                                color: 'var(--txt)'
+                            },
+                            ticks: {
+                                color: 'var(--muted)'
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        yBodyfat: {
+                            type: 'linear',
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Grasa Corporal (%)',
+                                color: 'var(--txt)'
+                            },
+                            ticks: {
+                                color: 'var(--muted)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        /**
+         * Requests notification permission from the user.
+         */
+        function requestNotifications() {
+            if (!('Notification' in window)) {
+                showCustomAlert('Error', 'Tu navegador no soporta notificaciones.');
+                return;
+            }
+            if (Notification.permission === 'granted') {
+                showCustomAlert('Notificaciones', 'Notificaciones ya activas. Pulsa "Reprogramar hoy" para programar.');
+                return;
+            }
+            Notification.requestPermission().then(p => {
+                if (p === 'granted') {
+                    showCustomAlert('Permiso Concedido', 'Perfecto. Ahora pulsa “Reprogramar hoy” para programar las notificaciones.');
+                } else {
+                    showCustomAlert('Permiso Denegado', 'No podrás recibir notificaciones sin tu permiso.');
+                }
+            });
+        }
+
+        /**
+         * Clears all previously scheduled setTimeout notifications.
+         */
+        function clearAllNotifications() {
+            notificationTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+            notificationTimeouts = []; // Reset the array
+        }
+
+        /**
+         * Schedules notifications for the current day's plan.
+         */
+        function scheduleToday() {
+            if (!('Notification' in window) || Notification.permission !== 'granted') {
+                showCustomAlert('Atención', 'Activa las notificaciones primero para poder programarlas.');
+                return;
+            }
+
+            clearAllNotifications(); // Clear previous notifications
+
+            const data = WEEK_PLAN[appState.day];
+            const entries = data.meals
+                .map(m => {
+                    const mealId = `${appState.day}-${m.k}`;
+                    const selectedOptionIndex = appState.selectedAlternatives[mealId] !== undefined ? appState.selectedAlternatives[mealId] : 0;
+                    return { label: m.name, body: m.options[selectedOptionIndex] || '', key: m.k };
+                })
+                .concat([{ label: 'Entreno', body: data.workout, key: 'ent' }]);
+
+            const now = new Date();
+            let programmedCount = 0;
+
+            entries.forEach(entry => {
+                const time = appState.times[entry.key] || DEFAULT_TIMES[entry.key];
+                const [hours, minutes] = time.split(':').map(Number);
+                const notificationTime = new Date();
+                notificationTime.setHours(hours, minutes, 0, 0);
+
+                const msUntilNotification = notificationTime - now;
+
+                if (msUntilNotification > 0) {
+                    const timeoutId = setTimeout(() => {
+                        try {
+                            new Notification(entry.label, { body: entry.body, icon: 'https://placehold.co/192x192/F4D00C/161616?text=LF' });
+                        } catch (error) {
+                            console.error('Error al mostrar notificación:', error);
+                        }
+                    }, msUntilNotification);
+                    notificationTimeouts.push(timeoutId);
+                    programmedCount++;
+                }
+            });
+            showCustomAlert('Notificaciones Programadas',
+                programmedCount ? `Recordatorios de hoy programados: ${programmedCount}.` : 'Hoy ya han pasado todos los horarios para programar.'
+            );
+        }
+
+        /**
+         * Renders all UI components.
+         */
+        function renderAll() {
+            renderTopBar();
+            renderPlanList();
+            renderPhysicalRecords();
+            renderProgressChart();
+            saveState();
+        }
+
+        /**
+         * Initializes the application.
+         */
+        function initApp() {
+            renderAll();
+            renderTimes();
+
+            // Event Listeners
+            DOMElements.btnNotif.addEventListener('click', requestNotifications);
+            DOMElements.btnProgramar.addEventListener('click', scheduleToday);
+            DOMElements.btnSavePhysicalRecord.addEventListener('click', savePhysicalRecord);
+            DOMElements.resetBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                showCustomConfirm('Reiniciar App', '¿Estás seguro de que quieres reiniciar todo el progreso, horarios y registros? Esta acción es irreversible.', () => {
+                    localStorage.clear();
+                    location.reload();
+                });
+            });
+        }
+
+        // Initialize the app when the window loads
+        window.onload = initApp;
+    </script>
+</body>
+</html>
