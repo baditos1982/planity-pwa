@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Planity v1.1 · Dashboard</title>
+    <title>Planity v1.2 · Dashboard</title> <!-- Versión actualizada en el título del navegador -->
     <meta name="theme-color" content="#f5f7fb">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -28,17 +28,65 @@
         * { box-sizing: border-box; }
         body { margin: 0; background: linear-gradient(140deg, #f0f2f5, #ffffff 30%, #f5f7fb); color: var(--txt); font: 16px 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, Arial, sans-serif; }
         .app { max-width: 920px; margin: 0 auto; padding: 20px; }
+
+        /* ---- INICIO DE CAMBIOS PARA OPTIMIZACIÓN MÓVIL ---- */
+        @media (max-width: 480px) { /* Para pantallas muy pequeñas (la mayoría de los móviles) */
+            .app {
+                padding: 10px; /* Reducir el padding general para dar más espacio al contenido */
+            }
+            header {
+                flex-wrap: wrap; /* Permitir que los elementos del encabezado se envuelvan */
+                justify-content: center; /* Centrar los elementos cuando se envuelven */
+                text-align: center; /* Centrar el texto en los elementos envueltos */
+            }
+            header > div {
+                width: 100%; /* Asegurar que el div de fecha/título ocupe todo el ancho */
+            }
+            .topbar {
+                margin-top: 12px; /* Añadir espacio cuando la barra de días se mueve abajo */
+                justify-content: center; /* Centrar la barra de días horizontalmente */
+            }
+            .title {
+                font-size: 24px; /* Ajustar el tamaño del título para móviles */
+            }
+        }
+        /* ---- FIN DE CAMBIOS PARA OPTIMIZACIÓN MÓVIL ---- */
+
         header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
         .title { font-weight: 800; letter-spacing: .2px; color: var(--txt); }
         .badge { font-size: 12px; color: var(--muted); }
         .card { background: var(--card); border: 1px solid rgba(0,0,0,.08); backdrop-filter: saturate(120%) blur(6px); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
-        .grid { display: grid; gap: 12px; }
-        @media(min-width:860px) { .grid { grid-template-columns: 1.2fr .8fr; grid-template-rows: auto auto; } }
-        @media(min-width:860px) { .grid > section:nth-child(3) { grid-column: span 2; } } /* Chart card spans full width below first two */
+        .grid {
+            display: grid;
+            gap: 12px;
+            /* Eliminadas las reglas para columnas, las tarjetas se apilan por defecto */
+        }
 
         .topbar { display: flex; gap: 10px; align-items: center; }
-        .seg { display: flex; background: var(--soft); border-radius: 14px; padding: 4px; }
-        .seg button { border: 0; background: transparent; color: var(--muted); padding: 8px 10px; border-radius: 10px; cursor: pointer; transition: all 0.3s ease-in-out; } /* Smoother transition */
+        .seg {
+            display: flex;
+            background: var(--soft);
+            border-radius: 14px;
+            padding: 4px;
+            overflow-x: auto; /* Permite el scroll horizontal si los elementos exceden el ancho */
+            -webkit-overflow-scrolling: touch; /* Suaviza el scroll en iOS */
+            white-space: nowrap; /* Mantiene los botones en una sola línea */
+            flex-shrink: 0; /* Evita que la barra se encoja */
+            max-width: 100%; /* Asegura que no se desborde del contenedor principal */
+        }
+        .seg::-webkit-scrollbar {
+            display: none; /* Oculta la barra de scroll en navegadores WebKit (Chrome, Safari) */
+        }
+        .seg button {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            padding: 8px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out; /* Smoother transition */
+            flex-shrink: 0; /* Evita que los botones se encojan */
+        }
         .seg button.active { background: var(--blue); color: white; box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3); }
         .progress { height: 10px; background: #e0e2e6; border-radius: 999px; overflow: hidden; }
         .progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #ffd84d); width: 0%; transition: width 0.5s ease-out; }
@@ -162,7 +210,8 @@
         <header>
             <div>
                 <div class="badge" id="fecha"></div>
-                <h1 class="title">Planity v1.1 · Tu día</h1>
+                <!-- Solo el nombre "Planity" en el encabezado para un diseño limpio -->
+                <h1 class="title">Planity · Tu día</h1>
             </div>
             <div class="topbar">
                 <div class="seg" id="daySeg"></div>
@@ -185,6 +234,18 @@
                     </label>
                     <label class="pill full-width">
                         Grasa Corporal (%) <input type="number" id="input-bodyfat" placeholder="Ej: 20" step="0.1" min="1" max="50" aria-label="Grasa corporal en porcentaje">
+                    </label>
+                    <label class="pill full-width">
+                        Agua (L) <input type="number" id="input-water" placeholder="Ej: 2.5" step="0.1" aria-label="Litros de agua consumidos">
+                    </label>
+                    <label class="pill full-width">
+                        Pasos <input type="number" id="input-steps" placeholder="Ej: 8000" step="100" aria-label="Número de pasos">
+                    </label>
+                    <label class="pill full-width">
+                        Sueño (h) <input type="number" id="input-sleep" placeholder="Ej: 7.5" step="0.1" aria-label="Horas de sueño">
+                    </label>
+                    <label class="pill full-width">
+                        Músculo (%) <input type="number" id="input-muscle" placeholder="Ej: 35.2" step="0.1" min="1" max="100" aria-label="Porcentaje de músculo">
                     </label>
                 </div>
                 <div style="height:10px"></div>
@@ -286,7 +347,7 @@
             },
             "Miércoles": {
                 meals: [
-                    { k: "des", name: "Desayuno", options: ["Batido: 250 ml leche semidesnatada + 1 plátano + 30 g proteína", "Yogur griego 0% (150 g) + 30 g avena + 1 cdita chía", "Revuelto 2 claras + 1 huevo + 40 g jamón serrano magro + pan integral (40 g) + plátano"] },
+                    { k: "des", name: "Desayuno", options: ["Batido: 250 ml leche semidesnadada + 1 plátano + 30 g proteína", "Yogur griego 0% (150 g) + 30 g avena + 1 cdita chía", "Revuelto 2 claras + 1 huevo + 40 g jamón serrano magro + pan integral (40 g) + plátano"] },
                     { k: "alm", name: "Almuerzo (media mañana)", options: ["Mandarina + 10 nueces", "Manzana + 10 almendras", "Plátano + 2 lonchas de pavo"] },
                     { k: "com", name: "Comida", options: ["150 g pavo al horno + 70 g quinoa (crudo) + ensalada lechuga y zanahoria", "150 g pollo al curry ligero + 70 g arroz basmati (crudo) + ensalada", "Ensalada de garbanzos (100 g cocidos) + atún + huevo duro + mandarina"] },
                     { k: "mer", name: "Merienda", options: ["Yogur griego 0% + 1 loncha de pavo", "Kiwi + 2 lonchas jamón cocido", "Manzana + 1 loncha jamón serrano"] },
@@ -364,7 +425,11 @@
             },
             // New physical record elements
             inputWeight: document.getElementById('input-weight'),
-            inputBodyfat: document.getElementById('input-bodyfat'), // Changed from inputWaist
+            inputBodyfat: document.getElementById('input-bodyfat'),
+            inputWater: document.getElementById('input-water'), // New
+            inputSteps: document.getElementById('input-steps'), // New
+            inputSleep: document.getElementById('input-sleep'), // New
+            inputMuscle: document.getElementById('input-muscle'), // New
             btnSavePhysicalRecord: document.getElementById('btnSavePhysicalRecord'),
             physicalRecordsList: document.getElementById('physicalRecordsList'),
             // Chart element
@@ -590,6 +655,10 @@
             // Populate inputs for today
             DOMElements.inputWeight.value = todayRecord ? todayRecord.weight : '';
             DOMElements.inputBodyfat.value = todayRecord ? todayRecord.bodyfat : '';
+            DOMElements.inputWater.value = todayRecord ? todayRecord.water : ''; // New
+            DOMElements.inputSteps.value = todayRecord ? todayRecord.steps : ''; // New
+            DOMElements.inputSleep.value = todayRecord ? todayRecord.sleep : ''; // New
+            DOMElements.inputMuscle.value = todayRecord ? todayRecord.muscle : ''; // New
 
             // Render history (last 7 days)
             DOMElements.physicalRecordsList.innerHTML = '';
@@ -606,7 +675,12 @@
                 const record = appState.physicalRecords[dateKey];
                 if (record) {
                     const listItem = document.createElement('li');
-                    listItem.textContent = `${formatDate(new Date(dateKey), false)}: ${record.weight} kg, ${record.bodyfat}% grasa`;
+                    let recordText = `${formatDate(new Date(dateKey), false)}: ${record.weight} kg, ${record.bodyfat}% grasa`;
+                    if (record.water !== null) recordText += `, ${record.water}L agua`;
+                    if (record.steps !== null) recordText += `, ${record.steps} pasos`;
+                    if (record.sleep !== null) recordText += `, ${record.sleep}h sueño`;
+                    if (record.muscle !== null) recordText += `, ${record.muscle}% músculo`;
+                    listItem.textContent = recordText;
                     DOMElements.physicalRecordsList.appendChild(listItem);
                 }
             });
@@ -618,18 +692,47 @@
         function savePhysicalRecord() {
             const weight = parseFloat(DOMElements.inputWeight.value);
             const bodyfat = parseFloat(DOMElements.inputBodyfat.value);
+            const water = parseFloat(DOMElements.inputWater.value); // New
+            const steps = parseInt(DOMElements.inputSteps.value, 10); // New
+            const sleep = parseFloat(DOMElements.inputSleep.value); // New
+            const muscle = parseFloat(DOMElements.inputMuscle.value); // New
             const todayKey = formatKeyDate(new Date());
 
             if (isNaN(weight) || isNaN(bodyfat) || weight <= 0 || bodyfat <= 0 || bodyfat > 100) {
                 showCustomAlert('Error de Registro', 'Por favor, introduce valores válidos para peso (kg) y grasa corporal (%).');
                 return;
             }
+            // Validaciones opcionales para las nuevas métricas (permitir vacíos, pero validar si se introducen)
+            if (!isNaN(water) && (water < 0 || water > 10)) { // Ejemplo: agua entre 0 y 10 litros
+                showCustomAlert('Error de Registro', 'El valor de agua (L) debe ser entre 0 y 10.');
+                return;
+            }
+            if (!isNaN(steps) && steps < 0) { // Pasos no pueden ser negativos
+                showCustomAlert('Error de Registro', 'Los pasos no pueden ser un valor negativo.');
+                return;
+            }
+            if (!isNaN(sleep) && (sleep < 0 || sleep > 24)) { // Sueño entre 0 y 24 horas
+                showCustomAlert('Error de Registro', 'Las horas de sueño deben ser entre 0 y 24.');
+                return;
+            }
+            if (!isNaN(muscle) && (muscle < 1 || muscle > 100)) { // Músculo entre 1 y 100%
+                showCustomAlert('Error de Registro', 'El porcentaje de músculo debe ser entre 1 y 100.');
+                return;
+            }
 
-            appState.physicalRecords[todayKey] = { weight, bodyfat };
+
+            appState.physicalRecords[todayKey] = {
+                weight,
+                bodyfat,
+                water: isNaN(water) ? null : water,    // Guarda como null si está vacío/inválido
+                steps: isNaN(steps) ? null : steps,    // Guarda como null si está vacío/inválido
+                sleep: isNaN(sleep) ? null : sleep,    // Guarda como null si está vacío/inválido
+                muscle: isNaN(muscle) ? null : muscle  // Guarda como null si está vacío/inválido
+            };
             saveState();
             renderPhysicalRecords();
             renderProgressChart();
-            showCustomAlert('Registro Guardado', 'Tu registro físico ha sido guardado con éxito.');
+            showCustomAlert('Registro Guardado', 'Tu registro físico ha sido guardado con éxito. Nuevas métricas añadidas.');
         }
 
         /**
@@ -779,7 +882,7 @@
                     const selectedOptionIndex = appState.selectedAlternatives[mealId] !== undefined ? appState.selectedAlternatives[mealId] : 0;
                     return { label: m.name, body: m.options[selectedOptionIndex] || '', key: m.k };
                 })
-                .concat([{ label: 'Entreno', body: data.workout, key: 'ent' }]);
+                .concat([{ k: 'ent', name: 'Entreno', body: data.workout, key: 'ent' }]); // Corrected workout to use 'body' property
 
             const now = new Date();
             let programmedCount = 0;

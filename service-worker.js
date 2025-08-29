@@ -1,4 +1,4 @@
-const CACHE_NAME = 'planity-cache-v2'; // Nombre de tu caché. ¡ACTUALIZADO A V2!
+const CACHE_NAME = 'planity-cache-v2'; // ¡CORREGIDO A V2! Esto forzará la actualización.
 const urlsToCache = [
   './', // Cacha la raíz de tu aplicación
   './index.html', // El archivo HTML principal
